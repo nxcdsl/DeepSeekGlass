@@ -91,6 +91,11 @@ struct ComposerView: View {
         .padding(.horizontal, 14)
         .padding(.top, 11)
         .padding(.bottom, 12)
+        .background {
+            Color.clear
+                .contentShape(Rectangle())
+                .gesture(holdGesture)
+        }
         .glassSurface(.rect(cornerRadius: 28))
     }
 
@@ -139,6 +144,7 @@ struct ComposerView: View {
                         try? await Task.sleep(nanoseconds: 260_000_000)
                         guard !Task.isCancelled else { return }
                         voiceFromBar = true
+                        focused.wrappedValue = false
                         Haptics.tap()
                         engine.beginVoice()
                     }

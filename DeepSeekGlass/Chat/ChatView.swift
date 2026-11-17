@@ -4,6 +4,7 @@ struct ChatView: View {
     @Environment(AppState.self) private var app
     @State private var scrollPosition = ScrollPosition(edge: .bottom)
     @State private var isNearBottom = true
+    @State private var isScrolling = false
     @State private var showAttachments = false
     @State private var showSources: [SearchResult] = []
     @FocusState private var composerFocused: Bool
@@ -55,15 +56,22 @@ struct ChatView: View {
             } action: { _, near in
                 isNearBottom = near
             }
+            .onScrollPhaseChange { _, phase in
+                isScrolling = phase != .idle
+            }
             .onChange(of: engine.scrollTick) { _, _ in
-                guard isNearBottom else { return }
-                withAnimation(.easeOut(duration: 0.18)) {
+                guard isNearBottom, !isScrolling else { return }
+                if engine.isStreaming {
                     scrollPosition.scrollTo(edge: .bottom)
+                } else {
+                    withAnimation(Motion.soft) {
+                        scrollPosition.scrollTo(edge: .bottom)
+                    }
                 }
             }
             .onChange(of: messages.count) { _, _ in
                 isNearBottom = true
-                withAnimation(.easeOut(duration: 0.22)) {
+                withAnimation(Motion.pop) {
                     scrollPosition.scrollTo(edge: .bottom)
                 }
             }
@@ -171,36 +179,37 @@ struct ChatView: View {
                 }
             }
 
-            ComposerView(
-                engine: engine,
-                focused: $composerFocused,
-                onPlus: { showAttachments = true }
-            )
-
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 Button {
                     Haptics.tap()
-                    withAnimation(.snappy(duration: 0.26)) {
+                    withAnimation(Motion.pop) {
                         app.router.tabBarExpanded.toggle()
                     }
                 } label: {
                     Image(systemName: app.router.tabBarExpanded ? "chevron.down" : "gearshape")
-                        .dsFont(15, weight: .medium)
-                        .foregroundStyle(Color.primary.opacity(0.82))
-                        .frame(width: 38, height: 38)
+                        .dsFont(14, weight: .medium)
+                        .foregroundStyle(Color.primary.opacity(0.78))
+                        .frame(width: 32, height: 32)
                         .contentShape(Circle())
                 }
                 .buttonStyle(GlassPressStyle())
                 .glassSurface(.circle, interactive: true)
                 .accessibilityLabel(app.router.tabBarExpanded ? "收起标签栏" : "展开标签栏")
 
-                Text("回答由 AI 生成，仅供参考")
-                    .dsFont(11)
-                    .foregroundStyle(.tertiary)
-
                 Spacer(minLength: 0)
             }
             .padding(.leading, 2)
+
+            ComposerView(
+                engine: engine,
+                focused: $composerFocused,
+                onPlus: { showAttachments = true }
+            )
+
+            Text("回答由 AI 生成，仅供参考")
+                .dsFont(11)
+                .foregroundStyle(.tertiary)
+                .frame(maxWidth: .infinity)
         }
         .padding(.horizontal, 12)
         .padding(.bottom, 6)
@@ -222,7 +231,7 @@ struct ChatView: View {
                         guard !app.router.drawerOpen else { return }
                         if value.translation.width > 52, abs(value.translation.height) < 80 {
                             Haptics.tap()
-                            withAnimation(.snappy(duration: 0.28)) {
+                            withAnimation(Motion.drawer) {
                                 app.router.drawerOpen = true
                             }
                         }

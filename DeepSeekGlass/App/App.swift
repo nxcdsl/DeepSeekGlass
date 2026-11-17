@@ -99,6 +99,6 @@ struct RootView: View {
         }
         .background(Theme.background.ignoresSafeArea())
         .environment(\.dsFontScale, app.settings.fontScale)
-        .animation(.snappy(duration: 0.25), value: router.drawerOpen)
+        .animation(Motion.drawer, value: router.drawerOpen)
     }
 }

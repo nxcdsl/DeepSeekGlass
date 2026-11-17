@@ -41,8 +41,8 @@ struct VoiceOverlay: View {
                         }
                     }
                     .overlay(alignment: .bottom) {
-                        VoiceRipple(level: voice.level)
-                            .frame(height: 180)
+                        FluidVoiceGlow(level: voice.level)
+                            .frame(height: 190)
                             .allowsHitTesting(false)
                     }
             }
@@ -126,32 +126,53 @@ struct VoiceOverlay: View {
     }
 }
 
-private struct VoiceRipple: View {
+private struct FluidVoiceGlow: View {
     var level: CGFloat
 
     var body: some View {
-        TimelineView(.animation) { context in
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
             let time = context.date.timeIntervalSinceReferenceDate
-            Canvas { context, size in
-                let center = CGPoint(x: size.width / 2, y: size.height * 0.92)
-                for index in 0..<4 {
-                    let phase = (time * 0.32 + Double(index) * 0.25).truncatingRemainder(dividingBy: 1)
-                    let radius = (0.12 + phase * 0.88) * size.width * 0.55
-                    let alpha = (1 - phase) * 0.16 * (0.45 + Double(level))
-                    let rect = CGRect(
-                        x: center.x - radius,
-                        y: center.y - radius * 0.26,
-                        width: radius * 2,
-                        height: radius * 0.52
-                    )
-                    context.stroke(
-                        Path(ellipseIn: rect),
-                        with: .color(.white.opacity(alpha)),
-                        lineWidth: 0.8
-                    )
-                }
-            }
+            let energy = Double(level)
+
+            MeshGradient(
+                width: 3,
+                height: 3,
+                points: [
+                    SIMD2<Float>(0, 0),
+                    SIMD2<Float>(Float(0.50 + 0.10 * sin(time * 0.8)), 0),
+                    SIMD2<Float>(1, 0),
+                    SIMD2<Float>(0, Float(0.42 + 0.06 * cos(time * 0.7))),
+                    SIMD2<Float>(
+                        Float(0.50 + 0.22 * sin(time * 1.15 + 1.2)),
+                        Float(0.46 + 0.14 * cos(time * 1.05))
+                    ),
+                    SIMD2<Float>(1, Float(0.42 + 0.06 * sin(time * 0.9))),
+                    SIMD2<Float>(0, 1),
+                    SIMD2<Float>(Float(0.50 + 0.08 * cos(time * 1.1)), 1),
+                    SIMD2<Float>(1, 1)
+                ],
+                colors: [
+                    Color(hex: 0x2F63FF).opacity(0.18 + energy * 0.18),
+                    Color(hex: 0x22D3EE).opacity(0.10 + energy * 0.20),
+                    Color(hex: 0x2F63FF).opacity(0.16 + energy * 0.16),
+                    Color(hex: 0x1C3FC8).opacity(0.30 + energy * 0.22),
+                    Color(hex: 0x7FA6FF).opacity(0.34 + energy * 0.32),
+                    Color(hex: 0x2F63FF).opacity(0.26 + energy * 0.22),
+                    Color(hex: 0x0C1B4D).opacity(0.55),
+                    Color(hex: 0x1C3FC8).opacity(0.32 + energy * 0.20),
+                    Color(hex: 0x0C1B4D).opacity(0.60)
+                ]
+            )
+            .blur(radius: 26)
+            .opacity(0.9)
+            .blendMode(.plusLighter)
         }
-        .blendMode(.plusLighter)
+        .mask {
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.5), .black],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
     }
 }

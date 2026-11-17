@@ -14,7 +14,7 @@ struct SidebarView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let width = min(proxy.size.width - 24, 440)
+            let width = min(proxy.size.width * 0.82, 370)
             let topInset = proxy.safeAreaInsets.top
             let bottomInset = proxy.safeAreaInsets.bottom
 
@@ -39,7 +39,7 @@ struct SidebarView: View {
                                 if shouldClose {
                                     close()
                                 } else {
-                                    withAnimation(.snappy(duration: 0.26)) { dragX = 0 }
+                                    withAnimation(Motion.pop) { dragX = 0 }
                                 }
                             }
                     )
@@ -294,7 +294,7 @@ struct SidebarView: View {
     }
 
     private func close() {
-        withAnimation(.snappy(duration: 0.26)) {
+        withAnimation(Motion.drawer) {
             app.router.drawerOpen = false
         }
         dragX = 0

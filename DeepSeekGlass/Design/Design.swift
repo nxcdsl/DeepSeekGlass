@@ -73,6 +73,15 @@ extension View {
     }
 }
 
+// MARK: - Motion
+
+enum Motion {
+    static let drawer = Animation.spring(response: 0.42, dampingFraction: 0.82)
+    static let pop = Animation.spring(response: 0.32, dampingFraction: 0.74)
+    static let soft = Animation.spring(response: 0.4, dampingFraction: 0.86)
+    static let quick = Animation.spring(response: 0.28, dampingFraction: 0.8)
+}
+
 // MARK: - Glass
 
 extension View {
