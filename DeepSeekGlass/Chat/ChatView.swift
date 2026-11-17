@@ -128,6 +128,10 @@ struct ChatView: View {
         .onChange(of: app.router.tab) { _, tab in
             if tab != .chat { composerFocused = false }
         }
+        .onChange(of: app.store.selectedID) { _, _ in
+            if engine.isStreaming { engine.stop() }
+            composerFocused = false
+        }
     }
 
     private var bottomArea: some View {
@@ -144,6 +148,15 @@ struct ChatView: View {
                     Image(systemName: "mic.slash")
                     Text(voiceError)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                    Button {
+                        app.voice.error = nil
+                    } label: {
+                        Image(systemName: "xmark")
+                            .dsFont(10, weight: .semibold)
+                            .foregroundStyle(.tertiary)
+                            .frame(width: 22, height: 22)
+                    }
+                    .buttonStyle(.plain)
                 }
                 .dsFont(12)
                 .foregroundStyle(.secondary)
@@ -180,6 +193,8 @@ struct ChatView: View {
             .fill(Color.clear)
             .frame(width: 18)
             .frame(maxHeight: .infinity)
+            .padding(.top, 80)
+            .padding(.bottom, 140)
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 14)

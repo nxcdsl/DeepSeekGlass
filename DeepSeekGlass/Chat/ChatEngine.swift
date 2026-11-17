@@ -56,7 +56,7 @@ final class ChatEngine {
         }
 
         let conversationID = ensureConversation()
-        guard let conversation = store.conversation(for: conversationID) else { return }
+        guard store.conversation(for: conversationID) != nil else { return }
 
         var attachments: [Attachment] = []
         for item in pending {
@@ -346,7 +346,6 @@ final class ChatEngine {
         guard force || Date().timeIntervalSince(lastFlush) > 0.055 else { return }
         guard var conversation = liveConversation,
               let message = liveMessage,
-              let conversationIndex = store.index(of: conversation.id),
               let messageIndex = conversation.messages.firstIndex(where: { $0.id == message.id }) else {
             return
         }

@@ -131,7 +131,7 @@ struct HistoryView: View {
                 .padding(.leading, 6)
 
             VStack(spacing: 0) {
-                ForEach(Array(conversations.enumerated()), id: \.element.id) { index, conversation in
+                ForEach(Array(conversations.enumerated()), id: \.offset) { index, conversation in
                     row(conversation)
                     if index < conversations.count - 1 {
                         Rectangle()

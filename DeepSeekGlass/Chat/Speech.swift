@@ -88,7 +88,11 @@ final class VoiceController {
 
         Task { [weak self] in
             guard let self else { return }
-            let granted = await AVAudioApplication.requestRecordPermission()
+            let granted: Bool = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+                AVAudioApplication.requestRecordPermission { allowed in
+                    continuation.resume(returning: allowed)
+                }
+            }
             guard self.phase == .recording else { return }
             guard granted else {
                 self.fail("没有麦克风权限。到系统设置里允许 DeepSeek 使用麦克风。")
@@ -293,7 +297,7 @@ private final class AudioCapture: @unchecked Sendable {
 
         let count = Int(output.frameLength)
         guard count > 0 else { return }
-        let data = Data(bytes: channel, count: count * MemoryLayout<Int16>.size)
+        let data = Data(bytes: UnsafeRawPointer(channel), count: count * MemoryLayout<Int16>.size)
 
         var sum: Double = 0
         for index in 0..<count {

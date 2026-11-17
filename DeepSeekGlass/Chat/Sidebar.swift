@@ -42,7 +42,6 @@ struct SidebarView: View {
                             }
                     )
             }
-            .ignoresSafeArea(edges: .vertical)
         }
         .transition(.move(edge: .leading).combined(with: .opacity))
         .alert("重命名对话", isPresented: Binding(
