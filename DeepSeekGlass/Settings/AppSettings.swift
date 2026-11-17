@@ -204,7 +204,7 @@ final class AppSettings {
         deepThinking = defaults.object(forKey: Keys.deepThinking) as? Bool ?? true
         webSearch = defaults.object(forKey: Keys.webSearch) as? Bool ?? true
         autoReadAloud = defaults.object(forKey: Keys.autoRead) as? Bool ?? false
-        persona = PersonaPreset(rawValue: defaults.string(forKey: Keys.persona) ?? "") ?? .native
+        persona = PersonaPreset(rawValue: defaults.string(forKey: Keys.persona) ?? "") ?? .companion
         customPrompt = defaults.string(forKey: Keys.customPrompt) ?? ""
         includeDate = defaults.object(forKey: Keys.includeDate) as? Bool ?? true
         effort = ThinkingEffort(rawValue: defaults.string(forKey: Keys.effort) ?? "") ?? .high
