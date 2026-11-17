@@ -262,93 +262,15 @@ enum Haptics {
 // MARK: - Whale
 
 struct WhaleLogo: View {
-    var size: CGFloat = 72
+    var size: CGFloat = 84
 
     var body: some View {
-        ZStack {
-            // Tail
-            WhaleTail()
-                .fill(LinearGradient(colors: [Theme.accentSoft, Theme.accent], startPoint: .topLeading, endPoint: .bottomTrailing))
-                .frame(width: size * 0.34, height: size * 0.32)
-                .offset(x: size * 0.30, y: -size * 0.10)
-
-            // Dorsal fin
-            WhaleFin()
-                .fill(LinearGradient(colors: [Theme.accentSoft, Theme.accent], startPoint: .top, endPoint: .bottom))
-                .frame(width: size * 0.22, height: size * 0.20)
-                .offset(x: size * 0.02, y: -size * 0.21)
-
-            // Body
-            Ellipse()
-                .fill(LinearGradient(colors: [Theme.accentSoft, Theme.accent], startPoint: .topLeading, endPoint: .bottomTrailing))
-                .frame(width: size * 0.82, height: size * 0.55)
-                .offset(x: -size * 0.02, y: size * 0.03)
-
-            // Belly
-            Ellipse()
-                .fill(Color.white.opacity(0.94))
-                .frame(width: size * 0.54, height: size * 0.24)
-                .offset(x: -size * 0.10, y: size * 0.14)
-
-            // Eye
-            Circle()
-                .fill(Color.white)
-                .frame(width: size * 0.075, height: size * 0.075)
-                .offset(x: -size * 0.22, y: -size * 0.02)
-            Circle()
-                .fill(Color(hex: 0x0B1B4D))
-                .frame(width: size * 0.036, height: size * 0.036)
-                .offset(x: -size * 0.23, y: -size * 0.02)
-
-            // Spout
-            Circle()
-                .fill(Color.white.opacity(0.75))
-                .frame(width: size * 0.035, height: size * 0.035)
-                .offset(x: -size * 0.05, y: -size * 0.30)
-            Circle()
-                .fill(Color.white.opacity(0.5))
-                .frame(width: size * 0.025, height: size * 0.025)
-                .offset(x: -size * 0.13, y: -size * 0.33)
-        }
-        .frame(width: size, height: size)
-        .accessibilityHidden(true)
+        Image("WhaleLogo")
+            .resizable()
+            .interpolation(.high)
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .accessibilityHidden(true)
     }
 }
 
-private struct WhaleTail: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: rect.minX + rect.width * 0.10, y: rect.midY))
-        path.addQuadCurve(
-            to: CGPoint(x: rect.maxX, y: rect.minY + rect.height * 0.10),
-            control: CGPoint(x: rect.midX, y: rect.minY + rect.height * 0.20)
-        )
-        path.addQuadCurve(
-            to: CGPoint(x: rect.maxX, y: rect.maxY),
-            control: CGPoint(x: rect.midX, y: rect.midY + rect.height * 0.15)
-        )
-        path.addQuadCurve(
-            to: CGPoint(x: rect.minX + rect.width * 0.10, y: rect.midY),
-            control: CGPoint(x: rect.minX + rect.width * 0.35, y: rect.maxY)
-        )
-        path.closeSubpath()
-        return path
-    }
-}
-
-private struct WhaleFin: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: rect.minX, y: rect.maxY))
-        path.addQuadCurve(
-            to: CGPoint(x: rect.maxX, y: rect.minY),
-            control: CGPoint(x: rect.midX, y: rect.minY + rect.height * 0.15)
-        )
-        path.addQuadCurve(
-            to: CGPoint(x: rect.minX, y: rect.maxY),
-            control: CGPoint(x: rect.midX, y: rect.midY)
-        )
-        path.closeSubpath()
-        return path
-    }
-}

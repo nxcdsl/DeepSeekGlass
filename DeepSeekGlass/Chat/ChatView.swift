@@ -223,10 +223,9 @@ struct HeaderBar: View {
     var onNewChat: () -> Void
 
     var body: some View {
-        GlassEffectContainer(spacing: 10) {
-            ZStack {
-                HStack {
-                    Button(action: onMenu) {
+        ZStack {
+            HStack {
+                Button(action: onMenu) {
                     MenuGlyph()
                         .frame(width: 44, height: 44)
                         .contentShape(Circle())
@@ -273,9 +272,8 @@ struct HeaderBar: View {
                 .allowsHitTesting(false)
                 .contentTransition(.opacity)
                 .animation(.easeInOut(duration: 0.2), value: title)
-            }
-            .frame(height: 46)
         }
+        .frame(height: 46)
     }
 }
 
