@@ -40,11 +40,6 @@ struct VoiceOverlay: View {
                             )
                         }
                     }
-                    .overlay(alignment: .bottom) {
-                        FluidVoiceGlow(level: voice.level)
-                            .frame(height: 190)
-                            .allowsHitTesting(false)
-                    }
             }
             .ignoresSafeArea()
         }
@@ -53,7 +48,12 @@ struct VoiceOverlay: View {
     }
 
     private var panel: some View {
-        VStack(spacing: 14) {
+        ZStack(alignment: .bottom) {
+            FluidVoiceGlow(level: voice.level)
+                .frame(height: 190)
+                .allowsHitTesting(false)
+
+            VStack(spacing: 14) {
             HStack(spacing: 7) {
                 Circle()
                     .fill(.white.opacity(voice.phase == .recording ? 0.9 : 0.35))
@@ -99,8 +99,9 @@ struct VoiceOverlay: View {
                 .dsFont(11)
                 .foregroundStyle(.white.opacity(0.45))
                 .padding(.bottom, 10)
+            }
+            .frame(maxWidth: .infinity)
         }
-        .frame(maxWidth: .infinity)
     }
 
     private var dottedWave: some View {
