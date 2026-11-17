@@ -54,6 +54,11 @@ final class ChatEngine {
             errorMessage = "还没有填 DeepSeek API Key。到「设置」里填上就能聊了。"
             return
         }
+        let apiKey = APIKeyInput.clean(settings.apiKey)
+        if let problem = APIKeyInput.problem(for: apiKey, baseURL: settings.baseURL) {
+            errorMessage = problem
+            return
+        }
 
         let conversationID = ensureConversation()
         guard store.conversation(for: conversationID) != nil else { return }

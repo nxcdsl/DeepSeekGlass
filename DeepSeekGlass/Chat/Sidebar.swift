@@ -14,7 +14,9 @@ struct SidebarView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let width = min(proxy.size.width - 54, 382)
+            let width = min(proxy.size.width - 24, 440)
+            let topInset = proxy.safeAreaInsets.top
+            let bottomInset = proxy.safeAreaInsets.bottom
 
             ZStack(alignment: .leading) {
                 Color.black
@@ -22,9 +24,9 @@ struct SidebarView: View {
                     .ignoresSafeArea()
                     .onTapGesture { close() }
 
-                panel(width: width, height: proxy.size.height)
-                    .frame(width: width)
-                    .offset(x: min(0, dragX))
+                panel(width: width, topInset: topInset, bottomInset: bottomInset)
+                    .frame(width: width, height: proxy.size.height + topInset + bottomInset)
+                    .offset(x: min(0, dragX), y: -topInset)
                     .gesture(
                         DragGesture(minimumDistance: 12)
                             .onChanged { value in
@@ -77,9 +79,9 @@ struct SidebarView: View {
         }
     }
 
-    private func panel(width: CGFloat, height: CGFloat) -> some View {
+    private func panel(width: CGFloat, topInset: CGFloat, bottomInset: CGFloat) -> some View {
         VStack(spacing: 0) {
-            header
+            header(topInset: topInset)
             searchField
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
@@ -112,7 +114,7 @@ struct SidebarView: View {
             }
             .scrollIndicators(.hidden)
 
-            footer
+            footer(bottomInset: bottomInset)
         }
         .frame(maxHeight: .infinity)
         .background {
@@ -144,7 +146,7 @@ struct SidebarView: View {
         .shadow(color: .black.opacity(0.28), radius: 30, x: 12, y: 0)
     }
 
-    private var header: some View {
+    private func header(topInset: CGFloat) -> some View {
         HStack(spacing: 10) {
             Text("对话")
                 .dsFont(24, weight: .bold)
@@ -175,7 +177,7 @@ struct SidebarView: View {
             .accessibilityLabel("关闭")
         }
         .padding(.horizontal, 18)
-        .padding(.top, 18)
+        .padding(.top, topInset + 10)
         .padding(.bottom, 4)
     }
 
@@ -261,7 +263,7 @@ struct SidebarView: View {
         }
     }
 
-    private var footer: some View {
+    private func footer(bottomInset: CGFloat) -> some View {
         VStack(spacing: 0) {
             Rectangle()
                 .fill(Color.primary.opacity(0.08))
@@ -287,7 +289,7 @@ struct SidebarView: View {
                 .frame(height: 52)
             }
             .buttonStyle(.plain)
-            .padding(.bottom, 8)
+            .padding(.bottom, bottomInset + 4)
         }
     }
 

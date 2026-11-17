@@ -154,20 +154,16 @@ struct GlassPill: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: icon)
-                    .dsFont(12, weight: .semibold)
+                    .dsFont(11, weight: .medium)
                 Text(title)
-                    .dsFont(13, weight: .medium)
+                    .dsFont(12, weight: .medium)
             }
             .foregroundStyle(isOn ? Theme.accent : Color.secondary)
-            .padding(.horizontal, 11)
-            .frame(height: 30)
+            .padding(.horizontal, 10)
+            .frame(height: 28)
             .background {
                 Capsule(style: .continuous)
-                    .fill(isOn ? Theme.accent.opacity(0.14) : Color.primary.opacity(0.055))
-            }
-            .overlay {
-                Capsule(style: .continuous)
-                    .strokeBorder(isOn ? Theme.accent.opacity(0.22) : Color.primary.opacity(0.06), lineWidth: 0.8)
+                    .fill(isOn ? Theme.accent.opacity(0.13) : Color.primary.opacity(0.05))
             }
         }
         .buttonStyle(GlassPressStyle(pressedScale: 0.96))
@@ -273,4 +269,3 @@ struct WhaleLogo: View {
             .accessibilityHidden(true)
     }
 }
-

@@ -12,6 +12,9 @@ struct ComposerView: View {
     @State private var pressingMic = false
     @State private var micStartedAt: Date?
     @State private var willCancel = false
+    @State private var holdingBar = false
+    @State private var voiceFromBar = false
+    @State private var holdTask: Task<Void, Never>?
 
     private var canSend: Bool {
         !engine.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !engine.pending.isEmpty
@@ -49,6 +52,13 @@ struct ComposerView: View {
                 }
             }
             .frame(minHeight: 25)
+            .overlay {
+                if engine.draft.isEmpty, !focused.wrappedValue {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .gesture(holdGesture)
+                }
+            }
 
             HStack(spacing: 7) {
                 GlassPill(title: "深度思考", icon: "brain", isOn: engine.deepThinking) {
@@ -65,10 +75,12 @@ struct ComposerView: View {
                     onPlus()
                 } label: {
                     Image(systemName: "plus")
-                        .dsFont(17, weight: .medium)
-                        .foregroundStyle(Color.primary.opacity(0.85))
+                        .dsFont(17, weight: .regular)
+                        .foregroundStyle(Color.primary.opacity(0.82))
                         .frame(width: 34, height: 34)
-                        .background(Circle().fill(Color.primary.opacity(0.055)))
+                        .background {
+                            Circle().strokeBorder(Color.primary.opacity(0.16), lineWidth: 1)
+                        }
                         .contentShape(Circle())
                 }
                 .buttonStyle(GlassPressStyle())
@@ -77,14 +89,9 @@ struct ComposerView: View {
             }
         }
         .padding(.horizontal, 14)
-        .padding(.top, 10)
-        .padding(.bottom, 11)
-        .glassSurface(.rect(cornerRadius: Theme.composerRadius))
-        .overlay {
-            RoundedRectangle(cornerRadius: Theme.composerRadius, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.10), lineWidth: 0.7)
-                .allowsHitTesting(false)
-        }
+        .padding(.top, 11)
+        .padding(.bottom, 12)
+        .glassSurface(.rect(cornerRadius: 28))
     }
 
     @ViewBuilder
@@ -122,12 +129,47 @@ struct ComposerView: View {
         }
     }
 
+    private var holdGesture: some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                if !holdingBar {
+                    holdingBar = true
+                    voiceFromBar = false
+                    holdTask = Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 260_000_000)
+                        guard !Task.isCancelled else { return }
+                        voiceFromBar = true
+                        Haptics.tap()
+                        engine.beginVoice()
+                    }
+                }
+                if voiceFromBar {
+                    willCancel = value.translation.height < -60
+                    app.voice.setWillCancel(willCancel)
+                }
+            }
+            .onEnded { value in
+                holdTask?.cancel()
+                holdTask = nil
+                if voiceFromBar {
+                    engine.endVoice(cancelled: value.translation.height < -60)
+                } else {
+                    focused.wrappedValue = true
+                }
+                holdingBar = false
+                voiceFromBar = false
+                willCancel = false
+            }
+    }
+
     private var micButton: some View {
         Image(systemName: "waveform")
             .dsFont(16, weight: .medium)
-            .foregroundStyle(app.voice.phase == .recording ? Theme.accent : Color.primary.opacity(0.85))
+            .foregroundStyle(app.voice.phase == .recording ? Theme.accent : Color.primary.opacity(0.82))
             .frame(width: 34, height: 34)
-            .background(Circle().fill(Color.primary.opacity(0.055)))
+            .background {
+                Circle().strokeBorder(Color.primary.opacity(0.16), lineWidth: 1)
+            }
             .contentShape(Circle())
             .scaleEffect(pressingMic ? 1.08 : 1)
             .animation(.snappy(duration: 0.18), value: pressingMic)

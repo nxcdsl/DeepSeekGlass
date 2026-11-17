@@ -17,16 +17,14 @@ struct ChatView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            AppBackdrop(ambient: app.settings.ambientBackground)
+            Theme.background
+                .ignoresSafeArea()
 
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 22) {
+                LazyVStack(alignment: .leading, spacing: 20) {
                     if messages.isEmpty {
-                        EmptyChatView { suggestion in
-                            engine.draft = suggestion
-                            engine.send()
-                        }
-                        .padding(.top, 128)
+                        EmptyChatView()
+                            .padding(.top, 126)
                     }
 
                     ForEach(messages) { message in
@@ -45,9 +43,9 @@ struct ChatView: View {
                         .frame(height: 1)
                         .id("chat-bottom")
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 92)
-                .padding(.bottom, 16)
+                .padding(.horizontal, 18)
+                .padding(.top, 88)
+                .padding(.bottom, 14)
             }
             .scrollIndicators(.hidden)
             .scrollPosition($scrollPosition)
@@ -73,10 +71,8 @@ struct ChatView: View {
                 bottomArea
             }
             .scrollDismissesKeyboard(.interactively)
-
-            TopFade()
-                .frame(maxHeight: .infinity, alignment: .top)
         }
+        .toolbar(app.router.tabBarExpanded ? .visible : .hidden, for: .tabBar)
         .overlay(alignment: .top) {
             HeaderBar(
                 title: conversation?.title ?? "新对话",
@@ -126,7 +122,11 @@ struct ChatView: View {
                 .presentationDragIndicator(.visible)
         }
         .onChange(of: app.router.tab) { _, tab in
-            if tab != .chat { composerFocused = false }
+            if tab != .chat {
+                composerFocused = false
+            } else {
+                app.router.tabBarExpanded = false
+            }
         }
         .onChange(of: app.store.selectedID) { _, _ in
             if engine.isStreaming { engine.stop() }
@@ -177,10 +177,30 @@ struct ChatView: View {
                 onPlus: { showAttachments = true }
             )
 
-            Text("回答由 AI 生成，仅供参考")
-                .dsFont(11)
-                .foregroundStyle(.tertiary)
-                .padding(.top, 1)
+            HStack(spacing: 10) {
+                Button {
+                    Haptics.tap()
+                    withAnimation(.snappy(duration: 0.26)) {
+                        app.router.tabBarExpanded.toggle()
+                    }
+                } label: {
+                    Image(systemName: app.router.tabBarExpanded ? "chevron.down" : "gearshape")
+                        .dsFont(15, weight: .medium)
+                        .foregroundStyle(Color.primary.opacity(0.82))
+                        .frame(width: 38, height: 38)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(GlassPressStyle())
+                .glassSurface(.circle, interactive: true)
+                .accessibilityLabel(app.router.tabBarExpanded ? "收起标签栏" : "展开标签栏")
+
+                Text("回答由 AI 生成，仅供参考")
+                    .dsFont(11)
+                    .foregroundStyle(.tertiary)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.leading, 2)
         }
         .padding(.horizontal, 12)
         .padding(.bottom, 6)
@@ -280,71 +300,34 @@ struct HeaderBar: View {
 // MARK: - Empty state
 
 struct EmptyChatView: View {
-    var onSuggestion: (String) -> Void
     @State private var appeared = false
 
     private var greeting: String {
         let hour = Calendar.current.component(.hour, from: .now)
         switch hour {
-        case 5..<11: return "早上好，今天想聊点什么？"
-        case 11..<14: return "中午好，吃了吗？"
+        case 5..<11: return "早上好，有什么可以帮到你？"
+        case 11..<14: return "中午好，有什么可以帮到你？"
         case 14..<18: return "下午好，有什么可以帮到你？"
-        case 18..<23: return "晚上好，今天过得怎么样？"
-        default: return "还没睡呀，想聊点什么？"
+        case 18..<23: return "晚上好，有什么可以帮到你？"
+        default: return "还没睡呀，有什么可以帮到你？"
         }
     }
 
     var body: some View {
-        VStack(spacing: 20) {
-            WhaleLogo(size: 88)
-                .scaleEffect(appeared ? 1 : 0.88)
+        VStack(spacing: 22) {
+            WhaleLogo(size: 78)
+                .scaleEffect(appeared ? 1 : 0.9)
                 .opacity(appeared ? 1 : 0)
-                .animation(.spring(response: 0.55, dampingFraction: 0.78), value: appeared)
+                .animation(.spring(response: 0.5, dampingFraction: 0.8), value: appeared)
 
-            VStack(spacing: 8) {
-                Text(greeting)
-                    .dsFont(21, weight: .semibold)
-                    .multilineTextAlignment(.center)
-                Text("可以聊聊天，也可以把一件事慢慢说清楚。")
-                    .dsFont(14)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            .opacity(appeared ? 1 : 0)
-            .offset(y: appeared ? 0 : 8)
-            .animation(.easeOut(duration: 0.4).delay(0.08), value: appeared)
-
-            HStack(spacing: 8) {
-                suggestion("陪我聊会儿", icon: "heart")
-                suggestion("理清一个想法", icon: "lightbulb")
-                suggestion("写点东西", icon: "pencil.line")
-            }
-            .padding(.top, 4)
-            .opacity(appeared ? 1 : 0)
-            .animation(.easeOut(duration: 0.4).delay(0.16), value: appeared)
+            Text(greeting)
+                .dsFont(21, weight: .semibold)
+                .multilineTextAlignment(.center)
+                .opacity(appeared ? 1 : 0)
+                .animation(.easeOut(duration: 0.35).delay(0.06), value: appeared)
         }
         .frame(maxWidth: .infinity)
         .onAppear { appeared = true }
-    }
-
-    private func suggestion(_ title: String, icon: String) -> some View {
-        Button {
-            Haptics.selection()
-            onSuggestion(title)
-        } label: {
-            HStack(spacing: 5) {
-                Image(systemName: icon).dsFont(11, weight: .medium)
-                Text(title).dsFont(12, weight: .medium)
-            }
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 11)
-            .frame(height: 32)
-            .background(Color.primary.opacity(0.045), in: Capsule())
-            .overlay {
-                Capsule().strokeBorder(Color.primary.opacity(0.055), lineWidth: 0.6)
-            }
-        }
-        .buttonStyle(GlassPressStyle(pressedScale: 0.96))
     }
 }
 

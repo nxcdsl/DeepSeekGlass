@@ -15,7 +15,8 @@ struct SettingsView: View {
         @Bindable var settings = app.settings
 
         ZStack {
-            AppBackdrop(ambient: settings.ambientBackground)
+            Theme.background
+                .ignoresSafeArea()
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
@@ -89,7 +90,15 @@ struct SettingsView: View {
 
                     HStack(spacing: 10) {
                         Button {
-                            settings.saveAPIKey(keyDraft)
+                            let key = APIKeyInput.clean(keyDraft)
+                            if let problem = APIKeyInput.problem(for: key, baseURL: settings.baseURL) {
+                                verifyMessage = problem
+                                verifyOK = false
+                                Haptics.warning()
+                                return
+                            }
+                            keyDraft = key
+                            settings.saveAPIKey(key)
                             verifyMessage = "已保存在本机钥匙串"
                             verifyOK = true
                             Haptics.success()
@@ -206,12 +215,14 @@ struct SettingsView: View {
     }
 
     private func verify(settings: AppSettings) {
-        let key = keyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !key.isEmpty else {
-            verifyMessage = "先填一个 API Key"
+        let key = APIKeyInput.clean(keyDraft)
+        if let problem = APIKeyInput.problem(for: key, baseURL: settings.baseURL) {
+            verifyMessage = problem
             verifyOK = false
+            Haptics.warning()
             return
         }
+        keyDraft = key
         settings.saveAPIKey(key)
         verifying = true
         verifyMessage = nil
@@ -289,7 +300,10 @@ struct SettingsView: View {
                 }
             }
             .padding(6)
-            .glassSurface(.rect(cornerRadius: 24))
+            .background(
+                Color(uiColor: .secondarySystemBackground),
+                in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+            )
 
             if settings.persona == .custom {
                 SettingsCard {
@@ -465,11 +479,6 @@ struct SettingsView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
 
-                    SettingsDivider()
-                    toggleRow("氛围背景", icon: "sparkles", isOn: Binding(
-                        get: { settings.ambientBackground },
-                        set: { settings.ambientBackground = $0 }
-                    ))
                 }
             }
         }
@@ -615,7 +624,10 @@ struct SettingsCard<Content: View>: View {
 
     var body: some View {
         content
-            .glassSurface(.rect(cornerRadius: 22))
+            .background(
+                Color(uiColor: .secondarySystemBackground),
+                in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+            )
     }
 }
 

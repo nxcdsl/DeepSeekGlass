@@ -15,7 +15,8 @@ struct HistoryView: View {
 
     var body: some View {
         ZStack {
-            AppBackdrop(ambient: app.settings.ambientBackground)
+            Theme.background
+                .ignoresSafeArea()
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 18) {
@@ -141,7 +142,10 @@ struct HistoryView: View {
                     }
                 }
             }
-            .glassSurface(.rect(cornerRadius: 20))
+            .background(
+                Color(uiColor: .secondarySystemBackground),
+                in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+            )
         }
     }
 

@@ -12,6 +12,7 @@ final class AppRouter {
 
     var tab: Tab = .chat
     var drawerOpen = false
+    var tabBarExpanded = false
 
     func openChat(_ id: UUID, store: ConversationStore) {
         store.selectedID = id
@@ -96,7 +97,7 @@ struct RootView: View {
                     .zIndex(3)
             }
         }
-        .background(AppBackdrop(ambient: app.settings.ambientBackground))
+        .background(Theme.background.ignoresSafeArea())
         .environment(\.dsFontScale, app.settings.fontScale)
         .animation(.snappy(duration: 0.25), value: router.drawerOpen)
     }

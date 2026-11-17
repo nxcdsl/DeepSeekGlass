@@ -108,6 +108,52 @@ enum AppearanceMode: String, CaseIterable, Identifiable, Sendable {
     }
 }
 
+// MARK: - API key input
+
+enum APIKeyInput {
+    static func clean(_ raw: String) -> String {
+        var value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        value = value.replacingOccurrences(of: "\u{201C}", with: "")
+        value = value.replacingOccurrences(of: "\u{201D}", with: "")
+        value = value.replacingOccurrences(of: "\"", with: "")
+        value = value.replacingOccurrences(of: "'", with: "")
+        if value.lowercased().hasPrefix("bearer ") {
+            value = String(value.dropFirst(7))
+        }
+        value = value.components(separatedBy: .whitespacesAndNewlines).joined()
+        return value
+    }
+
+    static func isLikelyDeepSeekKey(_ raw: String) -> Bool {
+        let key = clean(raw)
+        return key.hasPrefix("sk-") && key.count >= 20
+    }
+
+    static func looksLikeUUID(_ raw: String) -> Bool {
+        let key = clean(raw)
+        let pattern = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        return key.range(of: pattern, options: .regularExpression) != nil
+    }
+
+    static func problem(for raw: String, baseURL: String) -> String? {
+        let key = clean(raw)
+        if key.isEmpty {
+            return "API Key 不能为空。"
+        }
+        guard baseURL.contains("api.deepseek.com") else { return nil }
+        if !key.hasPrefix("sk-") {
+            if looksLikeUUID(key) {
+                return "这是一串 UUID，像是「密钥 ID」，不是 API Key。DeepSeek 的 Key 以 sk- 开头，请到 platform.deepseek.com → API Keys 复制完整 Key，或新建一个。"
+            }
+            return "DeepSeek API Key 以 sk- 开头，请检查是否复制了完整 Key。"
+        }
+        if key.count < 20 {
+            return "这个 Key 太短，可能没有复制完整。"
+        }
+        return nil
+    }
+}
+
 // MARK: - Settings
 
 @MainActor
@@ -204,7 +250,7 @@ final class AppSettings {
         deepThinking = defaults.object(forKey: Keys.deepThinking) as? Bool ?? true
         webSearch = defaults.object(forKey: Keys.webSearch) as? Bool ?? true
         autoReadAloud = defaults.object(forKey: Keys.autoRead) as? Bool ?? false
-        persona = PersonaPreset(rawValue: defaults.string(forKey: Keys.persona) ?? "") ?? .native
+        persona = PersonaPreset(rawValue: defaults.string(forKey: Keys.persona) ?? "") ?? .companion
         customPrompt = defaults.string(forKey: Keys.customPrompt) ?? ""
         includeDate = defaults.object(forKey: Keys.includeDate) as? Bool ?? true
         effort = ThinkingEffort(rawValue: defaults.string(forKey: Keys.effort) ?? "") ?? .high
@@ -212,11 +258,11 @@ final class AppSettings {
         fontScale = defaults.object(forKey: Keys.fontScale) as? Double ?? 1.0
         ambientBackground = defaults.object(forKey: Keys.ambient) as? Bool ?? true
         showReasoningByDefault = defaults.object(forKey: Keys.showReasoning) as? Bool ?? false
-        apiKey = KeychainStore.readAPIKey()
+        apiKey = APIKeyInput.clean(KeychainStore.readAPIKey())
     }
 
     func saveAPIKey(_ value: String) {
-        let clean = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let clean = APIKeyInput.clean(value)
         KeychainStore.saveAPIKey(clean)
         apiKey = clean
     }
