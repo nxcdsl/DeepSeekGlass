@@ -3,10 +3,14 @@ import UIKit
 
 // MARK: - Palette
 
+enum ThemeManager {
+    static var preset: AppThemePreset = .deepseek
+}
+
 enum Theme {
-    static let accent = Color(red: 0.302, green: 0.420, blue: 0.996)
-    static let accentSoft = Color(red: 0.44, green: 0.55, blue: 1.0)
-    static let accentDeep = Color(red: 0.16, green: 0.26, blue: 0.92)
+    static var accent: Color { ThemeManager.preset.accent }
+    static var accentSoft: Color { ThemeManager.preset.accentSoft }
+    static var accentDeep: Color { ThemeManager.preset.accentDeep }
 
     static let pagePadding: CGFloat = 16
     static let headerHeight: CGFloat = 44
@@ -14,7 +18,12 @@ enum Theme {
     static let cardRadius: CGFloat = 22
     static let bubbleRadius: CGFloat = 20
 
-    static var background: Color { Color(uiColor: .systemBackground) }
+    static var background: Color {
+        Color(uiColor: UIColor { traits in
+            let scheme: ColorScheme = traits.userInterfaceStyle == .dark ? .dark : .light
+            return UIColor(ThemeManager.preset.background(for: scheme))
+        })
+    }
     static var secondaryBackground: Color { Color(uiColor: .secondarySystemBackground) }
     static var tertiaryBackground: Color { Color(uiColor: .tertiarySystemBackground) }
     static var groupedBackground: Color { Color(uiColor: .systemGroupedBackground) }
@@ -253,6 +262,10 @@ enum Haptics {
 
     static func selection() {
         UISelectionFeedbackGenerator().selectionChanged()
+    }
+
+    static func thud() {
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
 
     static func success() {

@@ -84,6 +84,117 @@ struct ModelOption: Identifiable, Hashable, Sendable {
     var name: String
 }
 
+enum ConsumptionLevel: String, CaseIterable, Identifiable, Sendable {
+    case saver
+    case standard
+    case deep
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .saver: return "省流"
+        case .standard: return "标准"
+        case .deep: return "深度"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .saver: return "只带最近 10 条，附件只取前 3000 字"
+        case .standard: return "最近 40 条，附件前 12000 字"
+        case .deep: return "全部历史，附件前 30000 字"
+        }
+    }
+
+    var maxMessages: Int? {
+        switch self {
+        case .saver: return 10
+        case .standard: return 40
+        case .deep: return nil
+        }
+    }
+
+    var attachmentLimit: Int {
+        switch self {
+        case .saver: return 3_000
+        case .standard: return 12_000
+        case .deep: return 30_000
+        }
+    }
+
+    var includesThinkingHistory: Bool {
+        self != .saver
+    }
+
+    var allowsTitle: Bool {
+        self != .saver
+    }
+}
+
+enum AppThemePreset: String, CaseIterable, Identifiable, Hashable, Sendable {
+    case deepseek
+    case ocean
+    case forest
+    case sunset
+    case graphite
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .deepseek: return "深蓝"
+        case .ocean: return "海蓝"
+        case .forest: return "松绿"
+        case .sunset: return "暮橙"
+        case .graphite: return "石墨"
+        }
+    }
+
+    var accent: Color {
+        switch self {
+        case .deepseek: return Color(hex: 0x4D6BFE)
+        case .ocean: return Color(hex: 0x2E8BFF)
+        case .forest: return Color(hex: 0x2FAE7A)
+        case .sunset: return Color(hex: 0xFF7A59)
+        case .graphite: return Color(hex: 0x8E8E93)
+        }
+    }
+
+    var accentSoft: Color {
+        switch self {
+        case .deepseek: return Color(hex: 0x7F9BFF)
+        case .ocean: return Color(hex: 0x6DB7FF)
+        case .forest: return Color(hex: 0x6FD3A8)
+        case .sunset: return Color(hex: 0xFFA68F)
+        case .graphite: return Color(hex: 0xB8B8BE)
+        }
+    }
+
+    var accentDeep: Color {
+        switch self {
+        case .deepseek: return Color(hex: 0x2A46D8)
+        case .ocean: return Color(hex: 0x1366D8)
+        case .forest: return Color(hex: 0x168A5B)
+        case .sunset: return Color(hex: 0xD94F2E)
+        case .graphite: return Color(hex: 0x5C5C63)
+        }
+    }
+
+    func background(for scheme: ColorScheme) -> Color {
+        switch self {
+        case .deepseek, .graphite:
+            return Color(uiColor: .systemBackground)
+        case .ocean:
+            return scheme == .dark ? Color(hex: 0x07131F) : Color(hex: 0xF2F8FF)
+        case .forest:
+            return scheme == .dark ? Color(hex: 0x08150F) : Color(hex: 0xF4FAF6)
+        case .sunset:
+            return scheme == .dark ? Color(hex: 0x1A0E0A) : Color(hex: 0xFFF7F2)
+        }
+    }
+}
+
 enum AppearanceMode: String, CaseIterable, Identifiable, Sendable {
     case system
     case light
@@ -201,6 +312,13 @@ final class AppSettings {
         didSet { defaults.set(appearance.rawValue, forKey: Keys.appearance) }
     }
 
+    var theme: AppThemePreset {
+        didSet {
+            defaults.set(theme.rawValue, forKey: Keys.theme)
+            ThemeManager.preset = theme
+        }
+    }
+
     var fontScale: Double {
         didSet { defaults.set(fontScale, forKey: Keys.fontScale) }
     }
@@ -211,6 +329,30 @@ final class AppSettings {
 
     var showReasoningByDefault: Bool {
         didSet { defaults.set(showReasoningByDefault, forKey: Keys.showReasoning) }
+    }
+
+    var consumption: ConsumptionLevel {
+        didSet { defaults.set(consumption.rawValue, forKey: Keys.consumption) }
+    }
+
+    var temperatureOverrideEnabled: Bool {
+        didSet { defaults.set(temperatureOverrideEnabled, forKey: Keys.temperatureEnabled) }
+    }
+
+    var temperature: Double {
+        didSet { defaults.set(temperature, forKey: Keys.temperature) }
+    }
+
+    var maxTokens: Int {
+        didSet { defaults.set(maxTokens, forKey: Keys.maxTokens) }
+    }
+
+    var topP: Double {
+        didSet { defaults.set(topP, forKey: Keys.topP) }
+    }
+
+    var generatesTitle: Bool {
+        didSet { defaults.set(generatesTitle, forKey: Keys.generatesTitle) }
     }
 
     private(set) var apiKey: String
@@ -255,9 +397,17 @@ final class AppSettings {
         includeDate = defaults.object(forKey: Keys.includeDate) as? Bool ?? true
         effort = ThinkingEffort(rawValue: defaults.string(forKey: Keys.effort) ?? "") ?? .high
         appearance = AppearanceMode(rawValue: defaults.string(forKey: Keys.appearance) ?? "") ?? .system
+        theme = AppThemePreset(rawValue: defaults.string(forKey: Keys.theme) ?? "") ?? .deepseek
+        ThemeManager.preset = theme
         fontScale = defaults.object(forKey: Keys.fontScale) as? Double ?? 1.0
         ambientBackground = defaults.object(forKey: Keys.ambient) as? Bool ?? true
         showReasoningByDefault = defaults.object(forKey: Keys.showReasoning) as? Bool ?? false
+        consumption = ConsumptionLevel(rawValue: defaults.string(forKey: Keys.consumption) ?? "") ?? .standard
+        temperatureOverrideEnabled = defaults.object(forKey: Keys.temperatureEnabled) as? Bool ?? false
+        temperature = defaults.object(forKey: Keys.temperature) as? Double ?? 0.8
+        maxTokens = defaults.object(forKey: Keys.maxTokens) as? Int ?? 8192
+        topP = defaults.object(forKey: Keys.topP) as? Double ?? 1.0
+        generatesTitle = defaults.object(forKey: Keys.generatesTitle) as? Bool ?? true
         apiKey = APIKeyInput.clean(KeychainStore.readAPIKey())
     }
 
@@ -283,8 +433,15 @@ final class AppSettings {
         static let includeDate = "settings.includeDate"
         static let effort = "settings.effort"
         static let appearance = "settings.appearance"
+        static let theme = "settings.theme"
         static let fontScale = "settings.fontScale"
         static let ambient = "settings.ambient"
         static let showReasoning = "settings.showReasoning"
+        static let consumption = "settings.consumption"
+        static let temperatureEnabled = "settings.temperatureEnabled"
+        static let temperature = "settings.temperature"
+        static let maxTokens = "settings.maxTokens"
+        static let topP = "settings.topP"
+        static let generatesTitle = "settings.generatesTitle"
     }
 }

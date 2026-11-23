@@ -19,8 +19,8 @@ struct SidebarView: View {
             let bottomInset = proxy.safeAreaInsets.bottom
 
             ZStack(alignment: .leading) {
-                Color.black
-                    .opacity(0.40 * max(0, 1 - abs(dragX) / max(width, 1)))
+                Color.clear
+                    .contentShape(Rectangle())
                     .ignoresSafeArea()
                     .onTapGesture { close() }
 

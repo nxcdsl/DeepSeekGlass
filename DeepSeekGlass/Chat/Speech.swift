@@ -86,6 +86,11 @@ final class VoiceController {
         startedAt = .now
         startTicker()
 
+        if AVAudioApplication.shared.recordPermission == .granted {
+            startCapture()
+            return
+        }
+
         Task { [weak self] in
             guard let self else { return }
             let granted: Bool = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
@@ -98,14 +103,19 @@ final class VoiceController {
                 self.fail("没有麦克风权限。到系统设置里允许 DeepSeek 使用麦克风。")
                 return
             }
-            do {
-                try self.configureSession()
-                let capture = try AudioCapture()
-                self.capture = capture
-                try capture.start()
-            } catch {
-                self.fail("麦克风启动失败：\(error.localizedDescription)")
-            }
+            self.startCapture()
+        }
+    }
+
+    private func startCapture() {
+        guard phase == .recording, capture == nil else { return }
+        do {
+            try configureSession()
+            let capture = try AudioCapture()
+            self.capture = capture
+            try capture.start()
+        } catch {
+            fail("麦克风启动失败：\(error.localizedDescription)")
         }
     }
 

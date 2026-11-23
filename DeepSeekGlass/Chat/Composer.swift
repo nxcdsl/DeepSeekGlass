@@ -140,12 +140,13 @@ struct ComposerView: View {
                 if !holdingBar {
                     holdingBar = true
                     voiceFromBar = false
+                    Haptics.tap()
                     holdTask = Task { @MainActor in
-                        try? await Task.sleep(nanoseconds: 260_000_000)
+                        try? await Task.sleep(nanoseconds: 120_000_000)
                         guard !Task.isCancelled else { return }
                         voiceFromBar = true
                         focused.wrappedValue = false
-                        Haptics.tap()
+                        Haptics.thud()
                         engine.beginVoice()
                     }
                 }

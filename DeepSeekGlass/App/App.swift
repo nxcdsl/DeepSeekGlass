@@ -35,6 +35,7 @@ final class AppState {
     let router: AppRouter
     let speech: SpeechController
     let voice: VoiceController
+    let usage: UsageStore
     let engine: ChatEngine
 
     init() {
@@ -42,12 +43,14 @@ final class AppState {
         let store = ConversationStore()
         let speech = SpeechController()
         let voice = VoiceController(settings: settings)
+        let usage = UsageStore()
         self.settings = settings
         self.store = store
         self.speech = speech
         self.voice = voice
+        self.usage = usage
         self.router = AppRouter()
-        self.engine = ChatEngine(store: store, settings: settings, speech: speech, voice: voice)
+        self.engine = ChatEngine(store: store, settings: settings, speech: speech, voice: voice, usage: usage)
     }
 }
 
@@ -58,6 +61,7 @@ struct DeepSeekGlassApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                .id(app.settings.theme)
                 .environment(app)
                 .environment(\.dsFontScale, app.settings.fontScale)
                 .preferredColorScheme(app.settings.appearance.colorScheme)
@@ -85,6 +89,21 @@ struct RootView: View {
             }
             .tabBarMinimizeBehavior(.onScrollDown)
             .tint(Theme.accent)
+            .toolbar(.hidden, for: .tabBar)
+
+            if router.tab != .chat {
+                VStack {
+                    Spacer()
+                    GlobalTabBar()
+                        .padding(.horizontal, 10)
+                        .padding(.bottom, 8)
+                }
+                .zIndex(1)
+                .transition(.asymmetric(
+                    insertion: .opacity,
+                    removal: .scale(scale: 0.18, anchor: .bottomLeading).combined(with: .opacity)
+                ))
+            }
 
             if router.drawerOpen {
                 SidebarView()
@@ -100,5 +119,66 @@ struct RootView: View {
         .background(Theme.background.ignoresSafeArea())
         .environment(\.dsFontScale, app.settings.fontScale)
         .animation(Motion.drawer, value: router.drawerOpen)
+        .animation(.easeOut(duration: 0.14), value: app.voice.phase)
+    }
+}
+
+struct GlobalTabBar: View {
+    @Environment(AppState.self) private var app
+    @Namespace private var namespace
+    @State private var visualTab: AppRouter.Tab = .history
+
+    var body: some View {
+        HStack(spacing: 3) {
+            tab(.chat, title: "对话", icon: "bubble.left.and.bubble.right.fill")
+            tab(.history, title: "历史", icon: "clock")
+            tab(.settings, title: "设置", icon: "gearshape")
+        }
+        .padding(4)
+        .frame(height: 56)
+        .glassSurface(.capsule, interactive: true)
+        .onAppear { visualTab = app.router.tab }
+        .onChange(of: app.router.tab) { _, tab in visualTab = tab }
+    }
+
+    private func tab(_ tab: AppRouter.Tab, title: String, icon: String) -> some View {
+        let selected = visualTab == tab
+        return Button {
+            Haptics.thud()
+            if tab == .chat {
+                withAnimation(Motion.pop) { visualTab = .chat }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+                    withAnimation(Motion.pop) {
+                        app.router.tab = .chat
+                        app.router.tabBarExpanded = false
+                    }
+                }
+            } else {
+                withAnimation(Motion.pop) {
+                    visualTab = tab
+                    app.router.tab = tab
+                }
+            }
+        } label: {
+            VStack(spacing: 3) {
+                Image(systemName: icon)
+                    .dsFont(16, weight: .medium)
+                Text(title)
+                    .dsFont(10, weight: .medium)
+            }
+            .foregroundStyle(selected ? Theme.accent : Color.secondary)
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+            .background {
+                if selected {
+                    Capsule(style: .continuous)
+                        .fill(Theme.accent.opacity(0.14))
+                        .matchedGeometryEffect(id: "global-tab-indicator", in: namespace)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
     }
 }

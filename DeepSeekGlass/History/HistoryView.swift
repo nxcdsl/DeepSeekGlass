@@ -33,10 +33,11 @@ struct HistoryView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
-                .padding(.bottom, 32)
+                .padding(.bottom, 86)
             }
             .scrollIndicators(.hidden)
         }
+        .toolbar(.hidden, for: .tabBar)
         .alert("重命名对话", isPresented: Binding(
             get: { renameTarget != nil },
             set: { if !$0 { renameTarget = nil } }

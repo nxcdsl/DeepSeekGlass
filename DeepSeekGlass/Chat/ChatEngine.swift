@@ -7,6 +7,7 @@ import SwiftUI
 final class ChatEngine {
     private let store: ConversationStore
     private let settings: AppSettings
+    private let usage: UsageStore
     let speech: SpeechController
     let voice: VoiceController
 
@@ -31,12 +32,18 @@ final class ChatEngine {
     private var lastFlush = Date.distantPast
     private var titleFromAPI: String?
     private var startedAt = Date()
+    private var recordedUsage = false
+    private var debugRequest: Data?
+    private var debugUsage: [String: Any] = [:]
+    private var debugMessageCount = 0
+    private var debugStopReason = ""
 
-    init(store: ConversationStore, settings: AppSettings, speech: SpeechController, voice: VoiceController) {
+    init(store: ConversationStore, settings: AppSettings, speech: SpeechController, voice: VoiceController, usage: UsageStore) {
         self.store = store
         self.settings = settings
         self.speech = speech
         self.voice = voice
+        self.usage = usage
         self.deepThinking = settings.deepThinking
         self.webSearch = settings.webSearch
         voice.onAutoStop = { [weak self] in
@@ -156,11 +163,21 @@ final class ChatEngine {
         citationCounter = 0
         firstThinkingAt = nil
         titleFromAPI = nil
+        recordedUsage = false
         lastFlush = .distantPast
         startedAt = .now
         thinkingNow = deepThinking
         isStreaming = true
         errorMessage = nil
+        debugRequest = body
+        debugUsage = [:]
+        debugStopReason = ""
+        if let object = try? JSONSerialization.jsonObject(with: body) as? [String: Any],
+           let messages = object["messages"] as? [[String: Any]] {
+            debugMessageCount = messages.count
+        } else {
+            debugMessageCount = 0
+        }
 
         let client = DeepSeekClient(baseURL: settings.baseURL, apiKey: settings.apiKey)
         task = Task { [weak self] in
@@ -339,6 +356,31 @@ final class ChatEngine {
         }
         if let stop = delta["stop_reason"] as? String {
             liveMessage?.stopReason = stop
+            debugStopReason = stop
+        }
+        if let usageObject = object["usage"] as? [String: Any] {
+            let input = usageObject["input_tokens"] as? Int
+                ?? usageObject["prompt_tokens"] as? Int
+                ?? 0
+            let output = usageObject["output_tokens"] as? Int
+                ?? usageObject["completion_tokens"] as? Int
+                ?? 0
+            var normalized = usageObject
+            normalized["prompt_tokens"] = input
+            normalized["completion_tokens"] = output
+            let hit = usageObject["prompt_cache_hit_tokens"] as? Int
+                ?? usageObject["cache_read_input_tokens"] as? Int
+                ?? 0
+            let miss = usageObject["prompt_cache_miss_tokens"] as? Int
+                ?? usageObject["cache_creation_input_tokens"] as? Int
+                ?? max(0, input - hit)
+            normalized["prompt_cache_hit_tokens"] = hit
+            normalized["prompt_cache_miss_tokens"] = miss
+            debugUsage = normalized
+            if !recordedUsage, input > 0 || output > 0 {
+                recordedUsage = true
+                usage.record(input: input, output: output)
+            }
         }
     }
 
@@ -417,6 +459,24 @@ final class ChatEngine {
                 }
             }
         }
+
+        writeDebugLog(errorText: message.errorText ?? error.map { friendlyMessage($0) })
+    }
+
+    private func writeDebugLog(errorText: String?) {
+        guard let request = debugRequest else { return }
+        let response: [String: Any] = [
+            "usage": debugUsage,
+            "request_bytes": request.count,
+            "messages_count": debugMessageCount,
+            "stop_reason": debugStopReason,
+            "error": errorText ?? ""
+        ]
+        let responseData = (try? JSONSerialization.data(withJSONObject: response)) ?? Data()
+        debugRequest = nil
+        Task {
+            await APIDebugLogger.shared.record(request: request, response: responseData)
+        }
     }
 
     private func friendlyMessage(_ error: Error) -> String {
@@ -431,14 +491,22 @@ final class ChatEngine {
     // MARK: - Request body
 
     private func makeRequestBody(conversation: Conversation) -> Data? {
+        let level = settings.consumption
+        var sourceMessages = conversation.messages
+        if let maxMessages = level.maxMessages, sourceMessages.count > maxMessages {
+            sourceMessages = Array(sourceMessages.suffix(maxMessages))
+            while let first = sourceMessages.first, first.role == .assistant {
+                sourceMessages.removeFirst()
+            }
+        }
         var messages: [[String: Any]] = []
 
-        for message in conversation.messages {
+        for message in sourceMessages {
             switch message.role {
             case .assistant:
                 var content: [[String: Any]] = []
                 for block in message.blocks {
-                    if block.kind == .thinking, !block.text.isEmpty,
+                    if block.kind == .thinking, level.includesThinkingHistory, !block.text.isEmpty,
                        let signature = block.signature, !signature.isEmpty {
                         content.append([
                             "type": "thinking",
@@ -459,7 +527,7 @@ final class ChatEngine {
                 for attachment in message.attachments where !attachment.isImage {
                     let body = attachment.extractedText ?? ""
                     guard !body.isEmpty else { continue }
-                    text += "\n\n[附件：\(attachment.filename)]\n\(body.prefix(30_000))"
+                    text += "\n\n[附件：\(attachment.filename)]\n\(body.prefix(level.attachmentLimit))"
                 }
                 if !text.isEmpty {
                     content.append(["type": "text", "text": text])
@@ -484,13 +552,17 @@ final class ChatEngine {
 
         guard !messages.isEmpty else { return nil }
 
+        let temperature = settings.temperatureOverrideEnabled
+            ? settings.temperature
+            : (settings.persona == .companion ? 0.8 : 0.6)
         var body: [String: Any] = [
             "model": settings.model,
-            "max_tokens": 8192,
+            "max_tokens": settings.maxTokens,
             "stream": true,
-            "temperature": settings.persona == .companion ? 0.8 : 0.6,
+            "temperature": temperature,
+            "top_p": settings.topP,
             "messages": messages,
-            "title": ["enabled": true]
+            "title": ["enabled": settings.generatesTitle && level.allowsTitle]
         ]
 
         let system = settings.effectiveSystemPrompt

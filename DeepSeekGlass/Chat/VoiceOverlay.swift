@@ -107,14 +107,14 @@ struct VoiceOverlay: View {
     private var dottedWave: some View {
         TimelineView(.animation) { context in
             let time = context.date.timeIntervalSinceReferenceDate
-            let level = max(0.08, Double(voice.level))
-            HStack(alignment: .center, spacing: 4) {
-                ForEach(0..<38, id: \.self) { index in
-                    let phase = Double(index) * 0.55
-                    let wave = 0.25 + 0.75 * abs(sin(phase + time * 4.2))
-                    let height = 2 + 16 * wave * level
+            let level = max(0.28, Double(voice.level))
+            HStack(alignment: .center, spacing: 3.5) {
+                ForEach(0..<40, id: \.self) { index in
+                    let phase = Double(index) * 0.52
+                    let wave = 0.25 + 0.75 * abs(sin(phase + time * 4.6))
+                    let height = 3 + 20 * wave * level
                     Capsule()
-                        .fill(.white.opacity(0.72))
+                        .fill(.white.opacity(0.78))
                         .frame(width: 2, height: height)
                 }
             }

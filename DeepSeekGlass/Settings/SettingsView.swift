@@ -10,6 +10,8 @@ struct SettingsView: View {
     @State private var showAdvanced = false
     @State private var showPrompt = false
     @State private var confirmClear = false
+    @State private var showLogShare = false
+    @State private var logMessage: String?
 
     var body: some View {
         @Bindable var settings = app.settings
@@ -23,18 +25,33 @@ struct SettingsView: View {
                     header
                     apiSection(settings: settings)
                     personaSection(settings: settings)
+                    advancedSection(settings: settings)
                     conversationSection(settings: settings)
+                    usageSection
                     appearanceSection(settings: settings)
                     dataSection
+                    debugSection
                     aboutSection
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
-                .padding(.bottom, 36)
+                .padding(.bottom, 92)
             }
             .scrollIndicators(.hidden)
         }
+        .toolbar(.hidden, for: .tabBar)
         .onAppear { keyDraft = settings.apiKey }
+        .sheet(isPresented: $showLogShare) {
+            ShareSheet(items: [APIDebugLogger.logURL])
+        }
+        .alert("API 日志", isPresented: Binding(
+            get: { logMessage != nil },
+            set: { if !$0 { logMessage = nil } }
+        )) {
+            Button("好", role: .cancel) { logMessage = nil }
+        } message: {
+            Text(logMessage ?? "")
+        }
         .confirmationDialog("清空所有对话？", isPresented: $confirmClear, titleVisibility: .visible) {
             Button("全部删除", role: .destructive) {
                 app.store.deleteAll()
@@ -411,9 +428,220 @@ struct SettingsView: View {
                     }
                     .padding(.horizontal, 14)
                     .frame(height: 50)
+
+                    SettingsDivider()
+
+                    HStack {
+                        Label {
+                            Text("消耗等级")
+                                .dsFont(15)
+                        } icon: {
+                            Image(systemName: "leaf")
+                                .dsFont(14)
+                                .foregroundStyle(Theme.accent)
+                                .frame(width: 22)
+                        }
+                        Spacer()
+                        Picker("", selection: Binding(
+                            get: { settings.consumption },
+                            set: { settings.consumption = $0 }
+                        )) {
+                            ForEach(ConsumptionLevel.allCases) { level in
+                                Text(level.title).tag(level)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 150)
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(height: 50)
                 }
             }
+
+            Text(settings.consumption.subtitle)
+                .dsFont(10)
+                .foregroundStyle(.tertiary)
+                .padding(.horizontal, 6)
         }
+    }
+
+    // MARK: Advanced API parameters
+
+    private func advancedSection(settings: AppSettings) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            sectionTitle("API 参数")
+
+            SettingsCard {
+                VStack(alignment: .leading, spacing: 14) {
+                    Toggle(isOn: Binding(
+                        get: { settings.temperatureOverrideEnabled },
+                        set: { settings.temperatureOverrideEnabled = $0 }
+                    )) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("自定义 temperature")
+                                .dsFont(14)
+                            Text("关闭时跟随所选风格（原生 0.6 / 陪伴 0.8）")
+                                .dsFont(10)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    .tint(Theme.accent)
+
+                    if settings.temperatureOverrideEnabled {
+                        VStack(alignment: .leading, spacing: 5) {
+                            HStack {
+                                Text("temperature")
+                                    .dsFont(12)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Text(String(format: "%.2f", settings.temperature))
+                                    .dsFont(12)
+                                    .monospacedDigit()
+                                    .foregroundStyle(.secondary)
+                            }
+                            Slider(value: Binding(
+                                get: { settings.temperature },
+                                set: { settings.temperature = $0 }
+                            ), in: 0...2, step: 0.05)
+                            .tint(Theme.accent)
+                        }
+                    }
+
+                    Divider().opacity(0.4)
+
+                    HStack {
+                        Text("max_tokens")
+                            .dsFont(14)
+                        Spacer()
+                        Picker("", selection: Binding(
+                            get: { settings.maxTokens },
+                            set: { settings.maxTokens = $0 }
+                        )) {
+                            ForEach([2048, 4096, 8192, 16384, 32768], id: \.self) { value in
+                                Text("\(value)").tag(value)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .tint(Theme.accent)
+                    }
+
+                    HStack {
+                        Text("top_p")
+                            .dsFont(14)
+                        Spacer()
+                        Text(String(format: "%.2f", settings.topP))
+                            .dsFont(12)
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                    }
+                    Slider(value: Binding(
+                        get: { settings.topP },
+                        set: { settings.topP = $0 }
+                    ), in: 0.9...1.0, step: 0.01)
+                    .tint(Theme.accent)
+
+                    Toggle("生成对话标题", isOn: Binding(
+                        get: { settings.generatesTitle },
+                        set: { settings.generatesTitle = $0 }
+                    ))
+                    .dsFont(14)
+                    .tint(Theme.accent)
+
+                    Text("思考模式下 temperature / top_p 可能被服务端忽略；title 会额外产生一次服务端调用。")
+                        .dsFont(10)
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(14)
+            }
+        }
+    }
+
+    // MARK: Usage
+
+    private var usageSection: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            sectionTitle("API 用量")
+
+            SettingsCard {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .firstTextBaseline, spacing: 5) {
+                        Text(formatTokens(app.usage.totalTokens))
+                            .dsFont(28, weight: .bold)
+                            .monospacedDigit()
+                        Text("tokens")
+                            .dsFont(11)
+                            .foregroundStyle(.tertiary)
+                        Spacer()
+                        Text("今日 \(formatTokens(app.usage.todayTokens))")
+                            .dsFont(11)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    HStack(spacing: 18) {
+                        usageMetric("输入", value: app.usage.inputTokens)
+                        usageMetric("输出", value: app.usage.outputTokens)
+                        Spacer()
+                    }
+
+                    GeometryReader { geometry in
+                        let total = max(1, app.usage.totalTokens)
+                        let ratio = CGFloat(app.usage.inputTokens) / CGFloat(total)
+                        HStack(spacing: 2) {
+                            Capsule()
+                                .fill(Theme.accent)
+                                .frame(width: max(2, geometry.size.width * ratio))
+                            Capsule()
+                                .fill(Color.primary.opacity(0.10))
+                        }
+                    }
+                    .frame(height: 5)
+
+                    HStack(spacing: 8) {
+                        Text("按 deepseek-flash 峰值价估算 ≈ $\(formatCost(app.usage.estimatedCost))")
+                            .dsFont(10)
+                            .foregroundStyle(.tertiary)
+                        Spacer()
+                        Button("重置") {
+                            app.usage.reset()
+                        }
+                        .dsFont(10)
+                        .foregroundStyle(.tertiary)
+                        .buttonStyle(.plain)
+                    }
+
+                    Text("只统计这台设备上的对话，不是平台账单。")
+                        .dsFont(10)
+                        .foregroundStyle(.tertiary)
+                }
+                .padding(14)
+            }
+        }
+    }
+
+    private func usageMetric(_ title: String, value: Int) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .dsFont(10)
+                .foregroundStyle(.tertiary)
+            Text(formatTokens(value))
+                .dsFont(14, weight: .medium)
+                .monospacedDigit()
+        }
+    }
+
+    private func formatTokens(_ value: Int) -> String {
+        if value >= 1_000_000 {
+            return String(format: "%.2fM", Double(value) / 1_000_000)
+        }
+        if value >= 1_000 {
+            return String(format: "%.1fK", Double(value) / 1_000)
+        }
+        return "\(value)"
+    }
+
+    private func formatCost(_ value: Double) -> String {
+        if value >= 1 { return String(format: "%.2f", value) }
+        return String(format: "%.3f", value)
     }
 
     // MARK: Appearance
@@ -448,6 +676,46 @@ struct SettingsView: View {
                     }
                     .padding(.horizontal, 14)
                     .frame(height: 50)
+
+                    SettingsDivider()
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(AppThemePreset.allCases) { theme in
+                                Button {
+                                    Haptics.selection()
+                                    withAnimation(Motion.pop) {
+                                        settings.theme = theme
+                                    }
+                                } label: {
+                                    VStack(spacing: 5) {
+                                        Circle()
+                                            .fill(theme.accent)
+                                            .frame(width: 26, height: 26)
+                                            .overlay {
+                                                Circle().strokeBorder(Color.white.opacity(0.25), lineWidth: 0.7)
+                                            }
+                                        Text(theme.title)
+                                            .dsFont(10, weight: .medium)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 8)
+                                    .background {
+                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                            .fill(settings.theme == theme ? theme.accent.opacity(0.10) : Color.clear)
+                                    }
+                                    .overlay {
+                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                            .strokeBorder(settings.theme == theme ? theme.accent.opacity(0.35) : Color.clear, lineWidth: 1)
+                                    }
+                                }
+                                .buttonStyle(GlassPressStyle(pressedScale: 0.95))
+                            }
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                    }
 
                     SettingsDivider()
 
@@ -536,6 +804,81 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+
+    // MARK: Debug
+
+    private var debugSection: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            sectionTitle("调试")
+
+            SettingsCard {
+                VStack(spacing: 0) {
+                    Button {
+                        if APIDebugLogger.hasLog {
+                            showLogShare = true
+                        } else {
+                            logMessage = "还没有日志。先发几条消息，再回来导出。"
+                        }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "square.and.arrow.up")
+                                .dsFont(14)
+                                .foregroundStyle(Theme.accent)
+                                .frame(width: 22)
+                            Text("导出 API 日志")
+                                .dsFont(15)
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Text(logFileSize)
+                                .dsFont(11)
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(.horizontal, 14)
+                        .frame(height: 50)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    SettingsDivider()
+
+                    Button {
+                        Task {
+                            await APIDebugLogger.shared.clear()
+                            logMessage = "日志已清空。"
+                        }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "trash")
+                                .dsFont(14)
+                                .foregroundStyle(.red)
+                                .frame(width: 22)
+                            Text("清空 API 日志")
+                                .dsFont(15)
+                                .foregroundStyle(.red)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 14)
+                        .frame(height: 50)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            Text("每次请求会记录完整 Request Body 和 usage，保留最近 5 次；文件在 Documents 里，可能较大。")
+                .dsFont(10)
+                .foregroundStyle(.tertiary)
+                .padding(.horizontal, 6)
+        }
+    }
+
+    private var logFileSize: String {
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: APIDebugLogger.logURL.path),
+              let size = attributes[.size] as? Int, size > 0 else {
+            return "无"
+        }
+        return ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)
     }
 
     // MARK: About

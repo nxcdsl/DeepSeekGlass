@@ -5,6 +5,7 @@ struct ChatView: View {
     @State private var scrollPosition = ScrollPosition(edge: .bottom)
     @State private var isNearBottom = true
     @State private var isScrolling = false
+
     @State private var showAttachments = false
     @State private var showSources: [SearchResult] = []
     @FocusState private var composerFocused: Bool
@@ -80,7 +81,7 @@ struct ChatView: View {
             }
             .scrollDismissesKeyboard(.interactively)
         }
-        .toolbar(app.router.tabBarExpanded ? .visible : .hidden, for: .tabBar)
+        .toolbar(.hidden, for: .tabBar)
         .overlay(alignment: .top) {
             HeaderBar(
                 title: conversation?.title ?? "新对话",
@@ -130,16 +131,23 @@ struct ChatView: View {
                 .presentationDragIndicator(.visible)
         }
         .onChange(of: app.router.tab) { _, tab in
-            if tab != .chat {
-                composerFocused = false
-            } else {
-                app.router.tabBarExpanded = false
-            }
+            if tab != .chat { composerFocused = false }
+            app.router.tabBarExpanded = false
         }
         .onChange(of: app.store.selectedID) { _, _ in
             if engine.isStreaming { engine.stop() }
             composerFocused = false
         }
+        .onChange(of: composerFocused) { _, focused in
+            guard focused, isNearBottom else { return }
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 260_000_000)
+                withAnimation(Motion.soft) {
+                    scrollPosition.scrollTo(edge: .bottom)
+                }
+            }
+        }
+        .onAppear { app.router.tabBarExpanded = false }
     }
 
     private var bottomArea: some View {
@@ -179,32 +187,39 @@ struct ChatView: View {
                 }
             }
 
-            HStack(spacing: 8) {
-                Button {
-                    Haptics.tap()
-                    withAnimation(Motion.pop) {
-                        app.router.tabBarExpanded.toggle()
+            HStack(alignment: .center, spacing: 8) {
+                if !app.router.tabBarExpanded {
+                    Button {
+                        Haptics.tap()
+                        withAnimation(Motion.pop) {
+                            app.router.tabBarExpanded = true
+                        }
+                    } label: {
+                        Image(systemName: "gearshape")
+                            .dsFont(15, weight: .medium)
+                            .foregroundStyle(Color.primary.opacity(0.78))
+                            .frame(width: 42, height: 42)
+                            .contentShape(Circle())
                     }
-                } label: {
-                    Image(systemName: app.router.tabBarExpanded ? "chevron.down" : "gearshape")
-                        .dsFont(14, weight: .medium)
-                        .foregroundStyle(Color.primary.opacity(0.78))
-                        .frame(width: 32, height: 32)
-                        .contentShape(Circle())
+                    .buttonStyle(GlassPressStyle())
+                    .glassSurface(.circle, interactive: true)
+                    .accessibilityLabel("展开标签栏")
+                    .transition(.scale.combined(with: .opacity))
                 }
-                .buttonStyle(GlassPressStyle())
-                .glassSurface(.circle, interactive: true)
-                .accessibilityLabel(app.router.tabBarExpanded ? "收起标签栏" : "展开标签栏")
 
-                Spacer(minLength: 0)
+                ComposerView(
+                    engine: engine,
+                    focused: $composerFocused,
+                    onPlus: { showAttachments = true }
+                )
             }
-            .padding(.leading, 2)
+            .animation(Motion.pop, value: app.router.tabBarExpanded)
 
-            ComposerView(
-                engine: engine,
-                focused: $composerFocused,
-                onPlus: { showAttachments = true }
-            )
+            if app.router.tabBarExpanded {
+                ChatTabBar()
+                    .padding(.horizontal, 10)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
 
             Text("回答由 AI 生成，仅供参考")
                 .dsFont(11)
@@ -303,6 +318,56 @@ struct HeaderBar: View {
                 .animation(.easeInOut(duration: 0.2), value: title)
         }
         .frame(height: 46)
+    }
+}
+
+// MARK: - Chat tab bar
+
+struct ChatTabBar: View {
+    @Environment(AppState.self) private var app
+
+    var body: some View {
+        HStack(spacing: 3) {
+            tab(.chat, title: "对话", icon: "bubble.left.and.bubble.right.fill")
+            tab(.history, title: "历史", icon: "clock")
+            tab(.settings, title: "设置", icon: "gearshape")
+        }
+        .padding(4)
+        .frame(height: 56)
+        .glassSurface(.capsule, interactive: true)
+    }
+
+    private func tab(_ tab: AppRouter.Tab, title: String, icon: String) -> some View {
+        let selected = app.router.tab == tab
+        return Button {
+            Haptics.selection()
+            withAnimation(Motion.pop) {
+                if tab == .chat {
+                    app.router.tabBarExpanded = false
+                } else {
+                    app.router.tab = tab
+                }
+            }
+        } label: {
+            VStack(spacing: 3) {
+                Image(systemName: icon)
+                    .dsFont(16, weight: .medium)
+                Text(title)
+                    .dsFont(10, weight: .medium)
+            }
+            .foregroundStyle(selected ? Theme.accent : Color.secondary)
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+            .background {
+                if selected {
+                    Capsule(style: .continuous)
+                        .fill(Theme.accent.opacity(0.14))
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
     }
 }
 
