@@ -455,6 +455,13 @@ struct SettingsView: View {
                     }
                     .padding(.horizontal, 14)
                     .frame(height: 50)
+
+                    SettingsDivider()
+
+                    toggleRow("压缩旧对话", icon: "arrow.triangle.2.circlepath", isOn: Binding(
+                        get: { settings.contextCompression },
+                        set: { settings.contextCompression = $0 }
+                    ))
                 }
             }
 
@@ -462,6 +469,12 @@ struct SettingsView: View {
                 .dsFont(10)
                 .foregroundStyle(.tertiary)
                 .padding(.horizontal, 6)
+            if settings.contextCompression {
+                Text("较早的消息会压成一段本地记忆摘要随请求发送，保留近 \(settings.consumption.compressionWindow) 条原文。")
+                    .dsFont(10)
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 6)
+            }
         }
     }
 

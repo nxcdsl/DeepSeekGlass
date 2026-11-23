@@ -371,9 +371,9 @@ final class ChatEngine {
             let hit = usageObject["prompt_cache_hit_tokens"] as? Int
                 ?? usageObject["cache_read_input_tokens"] as? Int
                 ?? 0
-            let miss = usageObject["prompt_cache_miss_tokens"] as? Int
+            let explicitMiss = usageObject["prompt_cache_miss_tokens"] as? Int
                 ?? usageObject["cache_creation_input_tokens"] as? Int
-                ?? max(0, input - hit)
+            let miss = (explicitMiss ?? 0) > 0 ? explicitMiss! : max(0, input - hit)
             normalized["prompt_cache_hit_tokens"] = hit
             normalized["prompt_cache_miss_tokens"] = miss
             debugUsage = normalized
@@ -493,6 +493,17 @@ final class ChatEngine {
     private func makeRequestBody(conversation: Conversation) -> Data? {
         let level = settings.consumption
         var sourceMessages = conversation.messages
+        var memorySummary = ""
+
+        if settings.contextCompression, sourceMessages.count > level.compressionWindow + 1 {
+            let oldMessages = Array(sourceMessages.dropLast(level.compressionWindow))
+            memorySummary = ContextCompressor.summarize(oldMessages)
+            sourceMessages = Array(sourceMessages.suffix(level.compressionWindow))
+            while let first = sourceMessages.first, first.role == .assistant {
+                sourceMessages.removeFirst()
+            }
+        }
+
         if let maxMessages = level.maxMessages, sourceMessages.count > maxMessages {
             sourceMessages = Array(sourceMessages.suffix(maxMessages))
             while let first = sourceMessages.first, first.role == .assistant {
@@ -565,7 +576,11 @@ final class ChatEngine {
             "title": ["enabled": settings.generatesTitle && level.allowsTitle]
         ]
 
-        let system = settings.effectiveSystemPrompt
+        var system = settings.effectiveSystemPrompt
+        if !memorySummary.isEmpty {
+            if !system.isEmpty { system += "\n\n" }
+            system += "[早前对话压缩记忆]\n\(memorySummary)"
+        }
         if !system.isEmpty { body["system"] = system }
 
         body["thinking"] = ["type": deepThinking ? "enabled" : "disabled"]

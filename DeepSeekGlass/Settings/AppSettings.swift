@@ -115,6 +115,14 @@ enum ConsumptionLevel: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    var compressionWindow: Int {
+        switch self {
+        case .saver: return 8
+        case .standard: return 16
+        case .deep: return 24
+        }
+    }
+
     var attachmentLimit: Int {
         switch self {
         case .saver: return 3_000
@@ -335,6 +343,10 @@ final class AppSettings {
         didSet { defaults.set(consumption.rawValue, forKey: Keys.consumption) }
     }
 
+    var contextCompression: Bool {
+        didSet { defaults.set(contextCompression, forKey: Keys.contextCompression) }
+    }
+
     var temperatureOverrideEnabled: Bool {
         didSet { defaults.set(temperatureOverrideEnabled, forKey: Keys.temperatureEnabled) }
     }
@@ -402,6 +414,7 @@ final class AppSettings {
         ambientBackground = defaults.object(forKey: Keys.ambient) as? Bool ?? true
         showReasoningByDefault = defaults.object(forKey: Keys.showReasoning) as? Bool ?? false
         consumption = ConsumptionLevel(rawValue: defaults.string(forKey: Keys.consumption) ?? "") ?? .standard
+        contextCompression = defaults.object(forKey: Keys.contextCompression) as? Bool ?? true
         temperatureOverrideEnabled = defaults.object(forKey: Keys.temperatureEnabled) as? Bool ?? false
         temperature = defaults.object(forKey: Keys.temperature) as? Double ?? 0.8
         maxTokens = defaults.object(forKey: Keys.maxTokens) as? Int ?? 8192
@@ -438,6 +451,7 @@ final class AppSettings {
         static let ambient = "settings.ambient"
         static let showReasoning = "settings.showReasoning"
         static let consumption = "settings.consumption"
+        static let contextCompression = "settings.contextCompression"
         static let temperatureEnabled = "settings.temperatureEnabled"
         static let temperature = "settings.temperature"
         static let maxTokens = "settings.maxTokens"
