@@ -398,7 +398,6 @@ final class AppSettings {
         effort = ThinkingEffort(rawValue: defaults.string(forKey: Keys.effort) ?? "") ?? .high
         appearance = AppearanceMode(rawValue: defaults.string(forKey: Keys.appearance) ?? "") ?? .system
         theme = AppThemePreset(rawValue: defaults.string(forKey: Keys.theme) ?? "") ?? .deepseek
-        ThemeManager.preset = theme
         fontScale = defaults.object(forKey: Keys.fontScale) as? Double ?? 1.0
         ambientBackground = defaults.object(forKey: Keys.ambient) as? Bool ?? true
         showReasoningByDefault = defaults.object(forKey: Keys.showReasoning) as? Bool ?? false
@@ -409,6 +408,7 @@ final class AppSettings {
         topP = defaults.object(forKey: Keys.topP) as? Double ?? 1.0
         generatesTitle = defaults.object(forKey: Keys.generatesTitle) as? Bool ?? true
         apiKey = APIKeyInput.clean(KeychainStore.readAPIKey())
+        ThemeManager.preset = theme
     }
 
     func saveAPIKey(_ value: String) {
