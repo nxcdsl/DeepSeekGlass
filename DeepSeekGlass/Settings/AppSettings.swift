@@ -84,26 +84,29 @@ struct ModelOption: Identifiable, Hashable, Sendable {
     var name: String
 }
 
-enum ConsumptionLevel: String, CaseIterable, Identifiable, Sendable {
+enum ConsumptionLevel: String, CaseIterable, Identifiable, Hashable, Sendable {
     case saver
     case standard
     case deep
+    case custom
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .saver: return "省流"
+        case .saver: return "节能"
         case .standard: return "标准"
-        case .deep: return "深度"
+        case .deep: return "激进"
+        case .custom: return "自定义"
         }
     }
 
     var subtitle: String {
         switch self {
-        case .saver: return "只带最近 10 条，附件只取前 3000 字"
-        case .standard: return "最近 40 条，附件前 12000 字"
-        case .deep: return "全部历史，附件前 30000 字"
+        case .saver: return "只带最近 10 条，附件前 3,000 字"
+        case .standard: return "最近 40 条，附件前 12,000 字"
+        case .deep: return "全部历史，附件前 30,000 字"
+        case .custom: return "自己调节历史、附件和压缩窗口"
         }
     }
 
@@ -111,7 +114,7 @@ enum ConsumptionLevel: String, CaseIterable, Identifiable, Sendable {
         switch self {
         case .saver: return 10
         case .standard: return 40
-        case .deep: return nil
+        case .deep, .custom: return nil
         }
     }
 
@@ -120,6 +123,7 @@ enum ConsumptionLevel: String, CaseIterable, Identifiable, Sendable {
         case .saver: return 8
         case .standard: return 16
         case .deep: return 24
+        case .custom: return 12
         }
     }
 
@@ -128,6 +132,7 @@ enum ConsumptionLevel: String, CaseIterable, Identifiable, Sendable {
         case .saver: return 3_000
         case .standard: return 12_000
         case .deep: return 30_000
+        case .custom: return 8_000
         }
     }
 
@@ -347,6 +352,22 @@ final class AppSettings {
         didSet { defaults.set(contextCompression, forKey: Keys.contextCompression) }
     }
 
+    var debugLoggingEnabled: Bool {
+        didSet { defaults.set(debugLoggingEnabled, forKey: Keys.debugLogging) }
+    }
+
+    var customHistoryLimit: Int {
+        didSet { defaults.set(customHistoryLimit, forKey: Keys.customHistory) }
+    }
+
+    var customAttachmentLimit: Int {
+        didSet { defaults.set(customAttachmentLimit, forKey: Keys.customAttachment) }
+    }
+
+    var customCompressionWindow: Int {
+        didSet { defaults.set(customCompressionWindow, forKey: Keys.customWindow) }
+    }
+
     var temperatureOverrideEnabled: Bool {
         didSet { defaults.set(temperatureOverrideEnabled, forKey: Keys.temperatureEnabled) }
     }
@@ -415,6 +436,10 @@ final class AppSettings {
         showReasoningByDefault = defaults.object(forKey: Keys.showReasoning) as? Bool ?? false
         consumption = ConsumptionLevel(rawValue: defaults.string(forKey: Keys.consumption) ?? "") ?? .standard
         contextCompression = defaults.object(forKey: Keys.contextCompression) as? Bool ?? true
+        debugLoggingEnabled = defaults.object(forKey: Keys.debugLogging) as? Bool ?? true
+        customHistoryLimit = defaults.object(forKey: Keys.customHistory) as? Int ?? 20
+        customAttachmentLimit = defaults.object(forKey: Keys.customAttachment) as? Int ?? 8_000
+        customCompressionWindow = defaults.object(forKey: Keys.customWindow) as? Int ?? 12
         temperatureOverrideEnabled = defaults.object(forKey: Keys.temperatureEnabled) as? Bool ?? false
         temperature = defaults.object(forKey: Keys.temperature) as? Double ?? 0.8
         maxTokens = defaults.object(forKey: Keys.maxTokens) as? Int ?? 8192
@@ -452,6 +477,10 @@ final class AppSettings {
         static let showReasoning = "settings.showReasoning"
         static let consumption = "settings.consumption"
         static let contextCompression = "settings.contextCompression"
+        static let debugLogging = "settings.debugLogging"
+        static let customHistory = "settings.customHistory"
+        static let customAttachment = "settings.customAttachment"
+        static let customWindow = "settings.customWindow"
         static let temperatureEnabled = "settings.temperatureEnabled"
         static let temperature = "settings.temperature"
         static let maxTokens = "settings.maxTokens"

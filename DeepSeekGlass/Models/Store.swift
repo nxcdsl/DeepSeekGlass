@@ -160,7 +160,14 @@ final class ConversationStore {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         if let stored = try? decoder.decode([Conversation].self, from: data) {
-            conversations = stored.sorted { $0.updatedAt > $1.updatedAt }
+            let migrated = stored.map { item -> Conversation in
+                var conversation = item
+                if conversation.titleGenerated == nil, conversation.title != "新对话" {
+                    conversation.titleGenerated = true
+                }
+                return conversation
+            }
+            conversations = migrated.sorted { $0.updatedAt > $1.updatedAt }
             if selectedID == nil { selectedID = conversations.first?.id }
         } else {
             let backup = fileURL.deletingLastPathComponent()
@@ -313,6 +320,9 @@ final class ConversationStore {
     func rename(_ id: UUID, to title: String) {
         let clean = title.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !clean.isEmpty else { return }
-        update(id) { $0.title = clean }
+        update(id) {
+            $0.title = clean
+            $0.titleGenerated = true
+        }
     }
 }

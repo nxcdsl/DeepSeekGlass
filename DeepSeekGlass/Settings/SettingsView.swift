@@ -431,30 +431,70 @@ struct SettingsView: View {
 
                     SettingsDivider()
 
-                    HStack {
-                        Label {
-                            Text("消耗等级")
-                                .dsFont(15)
-                        } icon: {
-                            Image(systemName: "leaf")
-                                .dsFont(14)
-                                .foregroundStyle(Theme.accent)
-                                .frame(width: 22)
-                        }
-                        Spacer()
-                        Picker("", selection: Binding(
-                            get: { settings.consumption },
-                            set: { settings.consumption = $0 }
-                        )) {
-                            ForEach(ConsumptionLevel.allCases) { level in
-                                Text(level.title).tag(level)
+                    VStack(alignment: .leading, spacing: 10) {
+                        HStack {
+                            Label {
+                                Text("消耗等级")
+                                    .dsFont(15)
+                            } icon: {
+                                Image(systemName: "leaf")
+                                    .dsFont(14)
+                                    .foregroundStyle(Theme.accent)
+                                    .frame(width: 22)
                             }
+                            Spacer()
+                            Text(settings.consumption.title)
+                                .dsFont(12)
+                                .foregroundStyle(.secondary)
                         }
-                        .pickerStyle(.segmented)
-                        .frame(width: 150)
+
+                        GlassSegmentedControl(
+                            options: ConsumptionLevel.allCases,
+                            selection: Binding(
+                                get: { settings.consumption },
+                                set: { settings.consumption = $0 }
+                            ),
+                            label: { $0.title }
+                        )
+
+                        if settings.consumption == .custom {
+                            VStack(spacing: 6) {
+                                Stepper(value: Binding(
+                                    get: { settings.customHistoryLimit },
+                                    set: { settings.customHistoryLimit = $0 }
+                                ), in: 4...80, step: 4) {
+                                    HStack {
+                                        Text("历史条数").dsFont(12)
+                                        Spacer()
+                                        Text("\(settings.customHistoryLimit)").dsFont(12).monospacedDigit().foregroundStyle(.secondary)
+                                    }
+                                }
+                                Stepper(value: Binding(
+                                    get: { settings.customAttachmentLimit },
+                                    set: { settings.customAttachmentLimit = $0 }
+                                ), in: 2_000...30_000, step: 1_000) {
+                                    HStack {
+                                        Text("附件上限").dsFont(12)
+                                        Spacer()
+                                        Text("\(settings.customAttachmentLimit) 字").dsFont(12).monospacedDigit().foregroundStyle(.secondary)
+                                    }
+                                }
+                                Stepper(value: Binding(
+                                    get: { settings.customCompressionWindow },
+                                    set: { settings.customCompressionWindow = $0 }
+                                ), in: 4...40, step: 2) {
+                                    HStack {
+                                        Text("压缩窗口").dsFont(12)
+                                        Spacer()
+                                        Text("\(settings.customCompressionWindow) 条").dsFont(12).monospacedDigit().foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                            .padding(.top, 2)
+                        }
                     }
                     .padding(.horizontal, 14)
-                    .frame(height: 50)
+                    .padding(.vertical, 12)
 
                     SettingsDivider()
 
@@ -827,6 +867,26 @@ struct SettingsView: View {
 
             SettingsCard {
                 VStack(spacing: 0) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "doc.text.magnifyingglass")
+                            .dsFont(14)
+                            .foregroundStyle(Theme.accent)
+                            .frame(width: 22)
+                        Text("记录 API 日志")
+                            .dsFont(15)
+                        Spacer()
+                        Toggle("", isOn: Binding(
+                            get: { app.settings.debugLoggingEnabled },
+                            set: { app.settings.debugLoggingEnabled = $0 }
+                        ))
+                        .labelsHidden()
+                        .tint(Theme.accent)
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(height: 50)
+
+                    SettingsDivider()
+
                     Button {
                         if APIDebugLogger.hasLog {
                             showLogShare = true

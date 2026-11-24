@@ -82,6 +82,43 @@ extension View {
     }
 }
 
+struct GlassSegmentedControl<Option: Hashable>: View {
+    var options: [Option]
+    @Binding var selection: Option
+    var label: (Option) -> String
+
+    @Namespace private var namespace
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(options, id: \.self) { option in
+                let selected = option == selection
+                Button {
+                    Haptics.selection()
+                    withAnimation(Motion.pop) { selection = option }
+                } label: {
+                    Text(label(option))
+                        .dsFont(12, weight: selected ? .semibold : .medium)
+                        .foregroundStyle(selected ? Theme.accent : Color.secondary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 32)
+                        .background {
+                            if selected {
+                                Capsule(style: .continuous)
+                                    .fill(Theme.accent.opacity(0.14))
+                                    .matchedGeometryEffect(id: "glass-segment", in: namespace)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .glassSurface(.capsule, interactive: true)
+    }
+}
+
 // MARK: - Motion
 
 enum Motion {

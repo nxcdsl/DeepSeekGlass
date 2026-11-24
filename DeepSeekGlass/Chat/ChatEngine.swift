@@ -347,11 +347,17 @@ final class ChatEngine {
 
     private func handleMessageDelta(_ object: [String: Any]) {
         guard let delta = object["delta"] as? [String: Any] else { return }
-        if let title = delta["title"] as? String, !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if let title = delta["title"] as? String,
+           !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           liveConversation?.titleGenerated != true {
             titleFromAPI = title
             liveConversation?.title = title
+            liveConversation?.titleGenerated = true
             if let conversationID = liveConversation?.id {
-                store.update(conversationID) { $0.title = title }
+                store.update(conversationID) {
+                    $0.title = title
+                    $0.titleGenerated = true
+                }
             }
         }
         if let stop = delta["stop_reason"] as? String {
@@ -435,13 +441,16 @@ final class ChatEngine {
         }
 
         conversation.messages[messageIndex] = message
-        if let title = titleFromAPI, !title.isEmpty {
-            conversation.title = title
-        } else if conversation.title == "新对话" {
-            if let firstUser = conversation.messages.first(where: { $0.role == .user }) {
-                let text = firstUser.textContent.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !text.isEmpty { conversation.title = Self.fallbackTitle(text) }
+        if conversation.titleGenerated != true {
+            if let title = titleFromAPI, !title.isEmpty {
+                conversation.title = title
+            } else if conversation.title == "新对话" {
+                if let firstUser = conversation.messages.first(where: { $0.role == .user }) {
+                    let text = firstUser.textContent.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !text.isEmpty { conversation.title = Self.fallbackTitle(text) }
+                }
             }
+            conversation.titleGenerated = true
         }
         conversation.updatedAt = .now
         liveConversation = conversation
@@ -464,7 +473,7 @@ final class ChatEngine {
     }
 
     private func writeDebugLog(errorText: String?) {
-        guard let request = debugRequest else { return }
+        guard settings.debugLoggingEnabled, let request = debugRequest else { return }
         let response: [String: Any] = [
             "usage": debugUsage,
             "request_bytes": request.count,
@@ -492,19 +501,22 @@ final class ChatEngine {
 
     private func makeRequestBody(conversation: Conversation) -> Data? {
         let level = settings.consumption
+        let compressionWindow = level == .custom ? settings.customCompressionWindow : level.compressionWindow
+        let attachmentLimit = level == .custom ? settings.customAttachmentLimit : level.attachmentLimit
+        let historyLimit = level == .custom ? settings.customHistoryLimit : level.maxMessages
         var sourceMessages = conversation.messages
         var memorySummary = ""
 
-        if settings.contextCompression, sourceMessages.count > level.compressionWindow + 1 {
-            let oldMessages = Array(sourceMessages.dropLast(level.compressionWindow))
+        if settings.contextCompression, sourceMessages.count > compressionWindow + 1 {
+            let oldMessages = Array(sourceMessages.dropLast(compressionWindow))
             memorySummary = ContextCompressor.summarize(oldMessages)
-            sourceMessages = Array(sourceMessages.suffix(level.compressionWindow))
+            sourceMessages = Array(sourceMessages.suffix(compressionWindow))
             while let first = sourceMessages.first, first.role == .assistant {
                 sourceMessages.removeFirst()
             }
         }
 
-        if let maxMessages = level.maxMessages, sourceMessages.count > maxMessages {
+        if let maxMessages = historyLimit, sourceMessages.count > maxMessages {
             sourceMessages = Array(sourceMessages.suffix(maxMessages))
             while let first = sourceMessages.first, first.role == .assistant {
                 sourceMessages.removeFirst()
@@ -538,7 +550,7 @@ final class ChatEngine {
                 for attachment in message.attachments where !attachment.isImage {
                     let body = attachment.extractedText ?? ""
                     guard !body.isEmpty else { continue }
-                    text += "\n\n[附件：\(attachment.filename)]\n\(body.prefix(level.attachmentLimit))"
+                    text += "\n\n[附件：\(attachment.filename)]\n\(body.prefix(attachmentLimit))"
                 }
                 if !text.isEmpty {
                     content.append(["type": "text", "text": text])
@@ -573,7 +585,7 @@ final class ChatEngine {
             "temperature": temperature,
             "top_p": settings.topP,
             "messages": messages,
-            "title": ["enabled": settings.generatesTitle && level.allowsTitle]
+            "title": ["enabled": settings.generatesTitle && level.allowsTitle && conversation.titleGenerated != true]
         ]
 
         var system = settings.effectiveSystemPrompt

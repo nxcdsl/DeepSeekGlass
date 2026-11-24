@@ -143,6 +143,7 @@ struct Conversation: Identifiable, Codable, Hashable, Sendable {
     var isPinned: Bool = false
     var messages: [ChatMessage] = []
     var model: String?
+    var titleGenerated: Bool?
 
     var preview: String {
         for message in messages.reversed() where message.role == .user {

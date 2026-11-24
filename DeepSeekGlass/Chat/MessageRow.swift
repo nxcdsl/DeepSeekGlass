@@ -127,20 +127,15 @@ struct MessageActionBar: View {
     var onSpeak: () -> Void
 
     @Environment(AppState.self) private var app
-    @State private var copied = false
+    @State private var showCopySheet = false
     @State private var liked = false
     @State private var disliked = false
 
     var body: some View {
         HStack(spacing: 23) {
-            button(copied ? "checkmark" : "square.on.square", label: "复制") {
-                UIPasteboard.general.string = message.textContent
-                Haptics.success()
-                copied = true
-                Task {
-                    try? await Task.sleep(nanoseconds: 1_500_000_000)
-                    copied = false
-                }
+            button("square.on.square", label: "选择复制") {
+                Haptics.tap()
+                showCopySheet = true
             }
 
             button(liked ? "hand.thumbsup.fill" : "hand.thumbsup", label: "有帮助", tint: liked ? Theme.accent : nil) {
@@ -183,6 +178,11 @@ struct MessageActionBar: View {
             Spacer(minLength: 0)
         }
         .padding(.vertical, 2)
+        .sheet(isPresented: $showCopySheet) {
+            SelectableTextSheet(text: message.textContent)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
     }
 
     private func button(_ icon: String, label: String, tint: Color? = nil, action: @escaping () -> Void) -> some View {
