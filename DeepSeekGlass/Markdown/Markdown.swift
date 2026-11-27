@@ -340,7 +340,15 @@ struct CodeBlockView: View {
     var language: String
     var code: String
     @State private var copied = false
+    @State private var showPreview = false
     @Environment(\.dsFontScale) private var scale
+
+    private var isHTML: Bool {
+        let lang = language.lowercased()
+        return ["html", "htm", "xhtml", "svg"].contains(lang)
+            || code.localizedCaseInsensitiveContains("<!doctype html")
+            || code.localizedCaseInsensitiveContains("<html")
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -349,6 +357,24 @@ struct CodeBlockView: View {
                     .dsFont(11, weight: .medium)
                     .foregroundStyle(.secondary)
                 Spacer()
+                if isHTML {
+                    Button {
+                        Haptics.tap()
+                        showPreview = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "play.rectangle")
+                            Text("运行")
+                        }
+                        .dsFont(11, weight: .medium)
+                        .foregroundStyle(Theme.accent)
+                        .padding(.horizontal, 7)
+                        .frame(height: 26)
+                        .background(Theme.accent.opacity(0.10), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("运行 HTML")
+                }
                 Button {
                     UIPasteboard.general.string = code
                     Haptics.success()
@@ -386,6 +412,9 @@ struct CodeBlockView: View {
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.7)
+        }
+        .fullScreenCover(isPresented: $showPreview) {
+            HTMLPreviewView(html: code)
         }
     }
 }

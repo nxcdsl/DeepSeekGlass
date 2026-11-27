@@ -9,6 +9,8 @@ struct MessageRow: View {
     var onShowSources: () -> Void
     var onSpeak: () -> Void
 
+    @State private var showHTMLPreview = false
+
     var body: some View {
         if message.role == .user {
             userRow
@@ -77,7 +79,45 @@ struct MessageRow: View {
                 ThinkingSection(message: message, streaming: streaming)
             }
 
-            if !message.textContent.isEmpty {
+            if let html = message.standaloneHTML, !streaming {
+                HStack(spacing: 10) {
+                    Image(systemName: "safari")
+                        .dsFont(18, weight: .medium)
+                        .foregroundStyle(Theme.accent)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("HTML 页面")
+                            .dsFont(14, weight: .medium)
+                        Text("可以直接运行并交互")
+                            .dsFont(11)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button {
+                        Haptics.tap()
+                        showHTMLPreview = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "play.fill")
+                            Text("运行")
+                        }
+                        .dsFont(12, weight: .semibold)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .frame(height: 30)
+                        .background(Theme.accent, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(12)
+                .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.7)
+                }
+                .fullScreenCover(isPresented: $showHTMLPreview) {
+                    HTMLPreviewView(html: html)
+                }
+            } else if !message.textContent.isEmpty {
                 MarkdownView(text: message.textContent)
             } else if streaming {
                 TypingIndicator()

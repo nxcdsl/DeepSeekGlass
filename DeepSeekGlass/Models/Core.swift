@@ -103,6 +103,14 @@ struct ChatMessage: Identifiable, Codable, Hashable, Sendable {
         blocks.filter { $0.kind == .text }.map(\.text).joined()
     }
 
+    var standaloneHTML: String? {
+        let text = textContent.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = text.lowercased()
+        guard lower.hasPrefix("<!doctype html") || lower.hasPrefix("<html"),
+              lower.contains("</html>") else { return nil }
+        return text
+    }
+
     var thinkingContent: String {
         blocks.filter { $0.kind == .thinking }.map(\.text).joined(separator: "\n\n")
     }
